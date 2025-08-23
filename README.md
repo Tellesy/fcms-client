@@ -2,7 +2,7 @@
 
 A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). Works in any Kotlin or Java app (no Spring dependency). Optimized for performance and correctness.
 
-- Group: `ly.neptune.nexus.fcms`
+- Group: `io.github.tellesy`
 - Artifact: `fcms-client`
 - Version: `1.0.0`
 - JVM: Java 21+
@@ -30,13 +30,13 @@ JSON is automatically unwrapped from envelopes like `{ "data": ... }`. Paginatio
 Gradle (Kotlin DSL):
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("ly.neptune.nexus.fcms:fcms-client:1.0.0") }
+dependencies { implementation("io.github.tellesy:fcms-client:1.0.0") }
 ```
 
 Maven:
 ```xml
 <dependency>
-  <groupId>ly.neptune.nexus.fcms</groupId>
+  <groupId>io.github.tellesy</groupId>
   <artifactId>fcms-client</artifactId>
   <version>1.0.0</version>
 </dependency>
@@ -179,5 +179,5 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("ly.neptune.nexus.fcms:fcms-client:1.0.0")
+    implementation("io.github.tellesy:fcms-client:1.0.0")
 }
