@@ -95,13 +95,33 @@ publishing {
     }
 }
 
-// Sign artifacts for Maven Central (uses env vars SIGNING_KEY and SIGNING_PASSWORD)
+// Sign artifacts for Maven Central (supports: SIGNING_KEY, SIGNING_KEY_FILE, or GPG keyring fallback)
 signing {
-    val signingKey = (findProperty("signingKey") as String?) ?: System.getenv("SIGNING_KEY")
+    val signingKeyFile = (findProperty("signingKeyFile") as String?) ?: System.getenv("SIGNING_KEY_FILE")
+    val signingKeyFromFile = signingKeyFile?.let { file(it).takeIf { f -> f.exists() }?.readText() }
+    val signingKey =
+        (findProperty("signingKey") as String?)
+            ?: System.getenv("SIGNING_KEY")
+            ?: signingKeyFromFile
     val signingPassword = (findProperty("signingPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
+
     if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
+        // Use in-memory ASCII-armored private key
         useInMemoryPgpKeys(signingKey, signingPassword)
         sign(publishing.publications["mavenJava"])
+    } else {
+        // Fallback: use local GPG installation with a key in the keyring
+        val keyId = (findProperty("signingKeyId") as String?) ?: System.getenv("SIGNING_KEY_ID") ?: "9E466851D5026CB5"
+        if (!keyId.isNullOrBlank()) {
+            // Allow specifying keyName via Gradle property as recommended by the plugin
+            extensions.extraProperties.set("signing.gnupg.keyName", keyId)
+            val pass = (findProperty("signingPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
+            if (!pass.isNullOrBlank()) {
+                extensions.extraProperties.set("signing.gnupg.passphrase", pass)
+            }
+            useGpgCmd()
+            sign(publishing.publications["mavenJava"])
+        }
     }
 }
 
