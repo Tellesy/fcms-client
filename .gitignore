@@ -1,0 +1,33 @@
+# Gradle
+.gradle/
+**/.gradle/
+/build/
+**/build/
+!gradle/wrapper/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Kotlin/Java
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env & local config
+local.properties
+.env*
+!.env.example
+
+# Others
+out/
