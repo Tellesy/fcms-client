@@ -28,6 +28,7 @@ Thumbs.db
 local.properties
 .env*
 !.env.example
+gradle.properties
 
 # Others
 out/

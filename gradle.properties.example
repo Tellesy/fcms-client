@@ -1,0 +1,20 @@
+# Gradle properties for file-based signing and Sonatype publishing
+# Copy this file to 'gradle.properties' (same directory) and fill in the values.
+# NOTE: gradle.properties is gitignored to keep secrets out of VCS.
+
+# --- Signing (file-based) ---
+# Absolute path to your ASCII-armored SECRET key file.
+# Generate it with:
+#   gpg --armor --export-secret-keys TEST > /Users/mtellesy/.keys/fcms-signing.asc
+signingKeyFile=/Users/mtellesy/.keys/fcms-signing.asc
+
+# Passphrase you set when creating the GPG key
+signingPassword=TEST
+
+# Optional: if you prefer using the local GPG keyring instead of a file, set a key id
+# signingKeyId=9E466851D5026CB5
+
+# --- Sonatype (Maven Central) ---
+# Use your Sonatype Central "Publishing" token user/password
+sonatypeUsername=TEST
+sonatypePassword=TEST
