@@ -84,7 +84,7 @@ publishing {
                 }
                 scm {
                     url.set("https://github.com/Tellesy/fcms-client")
-                    connection.set("scm:git:git://github.com/Tellesy/fcms-client.git")
+                    connection.set("scm:git:https://github.com/Tellesy/fcms-client.git")
                     developerConnection.set("scm:git:ssh://git@github.com/Tellesy/fcms-client.git")
                 }
             }
@@ -97,8 +97,8 @@ publishing {
 
 // Sign artifacts for Maven Central (uses env vars SIGNING_KEY and SIGNING_PASSWORD)
 signing {
-    val signingKey = System.getenv("SIGNING_KEY")
-    val signingPassword = System.getenv("SIGNING_PASSWORD")
+    val signingKey = (findProperty("signingKey") as String?) ?: System.getenv("SIGNING_KEY")
+    val signingPassword = (findProperty("signingPassword") as String?) ?: System.getenv("SIGNING_PASSWORD")
     if (!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) {
         useInMemoryPgpKeys(signingKey, signingPassword)
         sign(publishing.publications["mavenJava"])
@@ -109,8 +109,12 @@ signing {
 nexusPublishing {
     repositories {
         sonatype {
-            username.set(System.getenv("SONATYPE_USERNAME"))
-            password.set(System.getenv("SONATYPE_PASSWORD"))
+            val user = (project.findProperty("sonatypeUsername") as String?) ?: System.getenv("SONATYPE_USERNAME")
+            val pass = (project.findProperty("sonatypePassword") as String?) ?: System.getenv("SONATYPE_PASSWORD")
+            username.set(user)
+            password.set(pass)
+            nexusUrl.set(uri("https://s01.oss.sonatype.org/service/local/"))
+            snapshotRepositoryUrl.set(uri("https://s01.oss.sonatype.org/content/repositories/snapshots/"))
         }
     }
 }
