@@ -4,6 +4,7 @@ package ly.neptune.nexus.fcms.salaries.internal
 import com.fasterxml.jackson.databind.node.ObjectNode
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.salaries.FcmsSalariesClient
+import ly.neptune.nexus.fcms.salaries.SalariesListFilter
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.core.http.FcmsHttpException
 import ly.neptune.nexus.fcms.core.http.JsonSupport
@@ -39,7 +40,98 @@ internal class FcmsSalariesClientImpl(
         val url = buildString {
             append(base)
             append("/api/v1/mof/transactions")
-            if (page != null) append("?page=").append(page)
+            if (page != null) {
+                append("?page=").append(page)
+                append("&limit=500")
+            } else {
+                append("?limit=500")
+            }
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), Transaction::class.java)
+            return Page(
+                data = pr.data,
+                total = pr.total,
+                perPage = pr.perPage,
+                currentPage = pr.currentPage,
+                next = pr.next,
+                prev = pr.prev,
+            )
+        }
+    }
+
+    override suspend fun listTransactionsFiltered(
+        page: Int?,
+        filter: SalariesListFilter?,
+        options: RequestOptions?
+    ): Page<Transaction> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/mof/transactions")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[state]", filter.state)
+                addParam("filter[year]", filter.year?.toString())
+                addParam("filter[month]", filter.month?.toString())
+            }
+            addParam("limit", "500")
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), Transaction::class.java)
+            return Page(
+                data = pr.data,
+                total = pr.total,
+                perPage = pr.perPage,
+                currentPage = pr.currentPage,
+                next = pr.next,
+                prev = pr.prev,
+            )
+        }
+    }
+
+    override suspend fun listTransactionsWithFilters(
+        page: Int?,
+        filters: Map<String, String>,
+        options: RequestOptions?
+    ): Page<Transaction> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/mof/transactions")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            for ((k, v) in filters) addParam(k, v)
+            addParam("limit", "500")
         }
         val req = Request.Builder()
             .url(url)

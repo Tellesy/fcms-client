@@ -1,10 +1,12 @@
 # FCMS Client (Kotlin/Java SDK)
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.tellesy/fcms-client.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.tellesy/fcms-client)
+
 A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). Works in any Kotlin or Java app (no Spring dependency). Optimized for performance and correctness.
 
 - Group: `io.github.tellesy`
 - Artifact: `fcms-client`
-- Version: `1.0.0`
+- Version: `1.0.2`
 - JVM: Java 21+
 
 ## Supported Endpoints
@@ -30,7 +32,7 @@ JSON is automatically unwrapped from envelopes like `{ "data": ... }`. Paginatio
 Gradle (Kotlin DSL):
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("io.github.tellesy:fcms-client:1.0.0") }
+dependencies { implementation("io.github.tellesy:fcms-client:1.0.2") }
 ```
 
 Maven:
@@ -38,7 +40,7 @@ Maven:
 <dependency>
   <groupId>io.github.tellesy</groupId>
   <artifactId>fcms-client</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.2</version>
 </dependency>
 ```
 
@@ -65,6 +67,11 @@ suspend fun main() {
 
     // Salaries
     val page1 = salaries.listTransactions(page = 1)
+    // Typed filtering
+    val pending2025 = salaries.listTransactionsFiltered(
+        page = 1,
+        filter = SalariesListFilter(state = "pending", year = 2025)
+    )
     val tx = salaries.showTransaction(
         uuid = "8bb8fbde-21d7-4a37-99eb-fdce5294a1ee",
         options = RequestOptions(
@@ -104,6 +111,10 @@ public class Example {
     );
     try (FcmsSalariesClientJava client = FcmsSalariesClientJava.create(config)) {
       Page<Transaction> page = client.listTransactions(1, null).get();
+      // Typed filtering from Java
+      Page<Transaction> filtered = client
+        .listTransactions(1, new SalariesListFilter("pending", 2025, null), null)
+        .get();
       Transaction t = client.showTransaction("8bb8fbde-21d7-4a37-99eb-fdce5294a1ee", null).get();
     }
   }
@@ -140,6 +151,98 @@ List APIs return `Page<T>` with fields: `data`, `total`, `perPage`, `currentPage
 - Laravel root links object `{ links: { next, prev } }` supported
 - Laravel `meta.links` array supported
 
+## Query parameters and filtering
+
+The SDK builds URLs and query strings for you. Here’s how to pass filters safely:
+
+- Salaries `GET {baseUrl}/api/v1/mof/transactions`
+  - Use `SalariesListFilter` with `listTransactionsFiltered(...)` to set Laravel-style filters:
+
+Kotlin:
+```kotlin
+val salariesPage = salaries.listTransactionsFiltered(
+    page = 1,
+    filter = SalariesListFilter(
+        state = "pending",   // -> filter[state]=pending
+        year = 2025,          // -> filter[year]=2025
+        month = 8             // -> filter[month]=8
+    )
+)
+
+// Convenience helpers
+val byState = salaries.listTransactionsByState("pending", page = 1)
+val byYear = salaries.listTransactionsByYear(2025, page = 1)
+val byYearMonth = salaries.listTransactionsByYearMonth(2025, 8, page = 1)
+val byAll = salaries.listTransactionsByYearMonthState(2025, 8, "completed", page = 1)
+
+// Raw map (advanced)
+val raw = salaries.listTransactionsWithFilters(
+    page = 1,
+    filters = mapOf(
+        "filter[state]" to "pending",
+        "filter[year]" to "2025"
+    )
+)
+```
+
+Java:
+```java
+// Typed filter
+Page<Transaction> page = client
+  .listTransactions(1, new SalariesListFilter("pending", 2025, 8), null)
+  .get();
+
+// Convenience wrappers
+Page<Transaction> byState = client.listTransactionsByState("pending", 1, null).get();
+Page<Transaction> byYear = client.listTransactionsByYear(2025, 1, null).get();
+Page<Transaction> byYearMonth = client.listTransactionsByYearMonth(2025, 8, 1, null).get();
+Page<Transaction> byAll = client.listTransactionsByYearMonthState(2025, 8, "completed", 1, null).get();
+
+// Raw map
+Page<Transaction> raw = client
+  .listTransactionsWithFilters(1, Map.of("filter[state]", "pending", "filter[year]", "2025"), null)
+  .get();
+```
+
+- Accounts `GET {baseUrl}/api/v1/bank-accounts`
+  - Use `AccountsListFilter` to set query params that map to Laravel-style filter keys:
+
+Kotlin:
+```kotlin
+val accountsPage = accounts.listAccounts(
+    page = 1,
+    filter = AccountsListFilter(
+        state = "pending",               // -> filter[state]=pending
+        iban = "SA123...",               // -> filter[iban]=SA123...
+        createdOn = "2025-01-15",        // -> filter[created_on]=2025-01-15
+        approvedOn = null,                // omitted when null/blank
+        rejectedOn = null,
+        unrejectedOn = null,
+        accountNumber = null,             // -> filter[account_number]=...
+        hasAccountNumber = true           // -> filter[has_account_number]=true
+    )
+)
+```
+
+Java:
+```java
+AccountsListFilter filter = new AccountsListFilter(
+    "pending",      // state -> filter[state]=pending
+    null,            // iban
+    null,            // createdOn (yyyy-MM-dd)
+    null,            // approvedOn
+    null,            // rejectedOn
+    null,            // unrejectedOn
+    null,            // accountNumber
+    Boolean.TRUE     // hasAccountNumber -> filter[has_account_number]=true
+);
+Page<BankAccount> page = accountsClient.listAccounts(1, filter, null);
+```
+
+Notes:
+- Only one question mark is used in a URL. Example with multiple filters: `...?filter[state]=pending&filter[year]=2025` (not `&?filter[year]=...`).
+- Null/blank fields are omitted from the query string automatically.
+
 ## Threading and Cleanup
 
 - The client uses a single shared OkHttp `OkHttpClient` with HTTP/2, connection pooling, gzip.
@@ -158,7 +261,7 @@ Semantic Versioning (SemVer). Breaking changes bump the major version.
 
 ## Examples
 
-See `examples/` for runnable snippets.
+Quick usage examples are provided in the Quick Start (Kotlin/Java) sections above.
 
 ## Security
 
@@ -179,13 +282,19 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("io.github.tellesy:fcms-client:1.0.0")
+    implementation("io.github.tellesy:fcms-client:1.0.2")
 }
 ```
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE).
 
 ## Author
 
 Muhammad Tellesy
+
+Built by Muhammad Tellesy as part of the openNexus initiative.
 
 
 
