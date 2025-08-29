@@ -243,6 +243,46 @@ Notes:
 - Only one question mark is used in a URL. Example with multiple filters: `...?filter[state]=pending&filter[year]=2025` (not `&?filter[year]=...`).
 - Null/blank fields are omitted from the query string automatically.
 
+## Salaries Data Models
+
+The SDK maps Salaries API JSON into typed models. New fields added in 1.0.3 are marked.
+
+- Transaction
+  - `uuid: String`
+  - `state: String`
+  - `individual: Individual`
+  - `bankAccount: BankAccount`
+  - `salary: Salary`
+  - `entity: Entity?` (new in 1.0.3)
+  - `description: String?` (new in 1.0.3)
+
+- Individual
+  - `name: String`, `nid: String`, `mofFinancialNumber: String`, `phoneNumber: String?`
+
+- BankAccount
+  - `number: String`, `iban: String?`, `bankBranch: String?` (new in 1.0.3)
+
+- Salary
+  - `amount: BigDecimal` (string or numeric in JSON supported)
+  - `currency: String`
+  - `period: Period { year: String, month: String }`
+
+- Entity (new in 1.0.3)
+  - `name: String`, `region: String?`
+
+Example (truncated):
+```json
+{
+  "uuid": "...",
+  "state": "pending",
+  "individual": { "name": "...", "nid": "...", "mofFinancialNumber": "..." },
+  "bankAccount": { "number": "...", "iban": "...", "bankBranch": "..." },
+  "salary": { "amount": "81834", "currency": "SAR", "period": { "year": "2025", "month": "08" } },
+  "entity": { "name": "...", "region": "..." },
+  "description": "..."
+}
+```
+
 ## Threading and Cleanup
 
 - The client uses a single shared OkHttp `OkHttpClient` with HTTP/2, connection pooling, gzip.
