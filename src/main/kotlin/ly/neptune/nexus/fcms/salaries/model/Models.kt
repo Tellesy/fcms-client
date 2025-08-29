@@ -16,6 +16,8 @@ data class Transaction @JsonCreator constructor(
     @JsonProperty("individual") val individual: Individual,
     @JsonProperty("bankAccount") val bankAccount: BankAccount,
     @JsonProperty("salary") val salary: Salary,
+    @JsonProperty("entity") val entity: Entity?,
+    @JsonProperty("description") val description: String?,
 )
 
 /**
@@ -36,6 +38,7 @@ data class Individual @JsonCreator constructor(
 data class BankAccount @JsonCreator constructor(
     @JsonProperty("number") val number: String,
     @JsonProperty("iban") val iban: String?,
+    @JsonProperty("bankBranch") val bankBranch: String?,
 )
 
 /**
@@ -46,6 +49,15 @@ data class Salary @JsonCreator constructor(
     @JsonProperty("amount") @JsonDeserialize(using = StringBigDecimalDeserializer::class) val amount: BigDecimal,
     @JsonProperty("currency") val currency: String,
     @JsonProperty("period") val period: Period,
+)
+
+/**
+ * Entity (organization) information associated with the transaction.
+ */
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class Entity @JsonCreator constructor(
+    @JsonProperty("name") val name: String,
+    @JsonProperty("region") val region: String?,
 )
 
 /**

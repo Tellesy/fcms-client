@@ -6,7 +6,7 @@ A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). 
 
 - Group: `io.github.tellesy`
 - Artifact: `fcms-client`
-- Version: `1.0.2`
+- Version: `1.0.3`
 - JVM: Java 21+
 
 ## Supported Endpoints
@@ -32,7 +32,7 @@ JSON is automatically unwrapped from envelopes like `{ "data": ... }`. Paginatio
 Gradle (Kotlin DSL):
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("io.github.tellesy:fcms-client:1.0.2") }
+dependencies { implementation("io.github.tellesy:fcms-client:1.0.3") }
 ```
 
 Maven:
@@ -40,7 +40,7 @@ Maven:
 <dependency>
   <groupId>io.github.tellesy</groupId>
   <artifactId>fcms-client</artifactId>
-  <version>1.0.2</version>
+  <version>1.0.3</version>
 </dependency>
 ```
 
@@ -282,7 +282,7 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("io.github.tellesy:fcms-client:1.0.2")
+    implementation("io.github.tellesy:fcms-client:1.0.3")
 }
 ```
 
