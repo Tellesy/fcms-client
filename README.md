@@ -6,8 +6,14 @@ A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). 
 
 - Group: `io.github.tellesy`
 - Artifact: `fcms-client`
-- Version: `1.0.3`
+- Version: `1.0.4`
 - JVM: Java 21+
+
+## What's New in 1.0.4
+
+- Entity model: `name` is now nullable (`String?`) to gracefully handle nulls from the API.
+- Verified null-safe deserialization across optional fields (e.g., `bankAccount.bankBranch`, `transaction.description`).
+- No breaking API changes; this is a robustness update.
 
 ## Supported Endpoints
 
@@ -32,7 +38,7 @@ JSON is automatically unwrapped from envelopes like `{ "data": ... }`. Paginatio
 Gradle (Kotlin DSL):
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("io.github.tellesy:fcms-client:1.0.3") }
+dependencies { implementation("io.github.tellesy:fcms-client:1.0.4") }
 ```
 
 Maven:
@@ -40,7 +46,7 @@ Maven:
 <dependency>
   <groupId>io.github.tellesy</groupId>
   <artifactId>fcms-client</artifactId>
-  <version>1.0.3</version>
+  <version>1.0.4</version>
 </dependency>
 ```
 
@@ -245,7 +251,7 @@ Notes:
 
 ## Salaries Data Models
 
-The SDK maps Salaries API JSON into typed models. New fields added in 1.0.3 are marked.
+The SDK maps Salaries API JSON into typed models. New fields added in 1.0.3 are marked; nullability updates in 1.0.4 are noted.
 
 - Transaction
   - `uuid: String`
@@ -268,7 +274,7 @@ The SDK maps Salaries API JSON into typed models. New fields added in 1.0.3 are 
   - `period: Period { year: String, month: String }`
 
 - Entity (new in 1.0.3)
-  - `name: String`, `region: String?`
+  - `name: String?` (nullable since 1.0.4), `region: String?`
 
 Example (truncated):
 ```json
@@ -322,7 +328,7 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("io.github.tellesy:fcms-client:1.0.3")
+    implementation("io.github.tellesy:fcms-client:1.0.4")
 }
 ```
 

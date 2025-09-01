@@ -11,8 +11,8 @@ import java.math.BigDecimal
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Transaction @JsonCreator constructor(
-    @JsonProperty("uuid") val uuid: String,
-    @JsonProperty("state") val state: String,
+    @JsonProperty("uuid") @JsonDeserialize(using = StringDeserializer::class) val uuid: String,
+    @JsonProperty("state") @JsonDeserialize(using = StringDeserializer::class) val state: String,
     @JsonProperty("individual") val individual: Individual,
     @JsonProperty("bankAccount") val bankAccount: BankAccount,
     @JsonProperty("salary") val salary: Salary,
@@ -25,9 +25,9 @@ data class Transaction @JsonCreator constructor(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Individual @JsonCreator constructor(
-    @JsonProperty("name") val name: String,
-    @JsonProperty("nid") val nid: String,
-    @JsonProperty("mofFinancialNumber") val mofFinancialNumber: String,
+    @JsonProperty("name") @JsonDeserialize(using = StringDeserializer::class) val name: String,
+    @JsonProperty("nid") @JsonDeserialize(using = StringDeserializer::class) val nid: String,
+    @JsonProperty("mofFinancialNumber") @JsonDeserialize(using = StringDeserializer::class) val mofFinancialNumber: String,
     @JsonProperty("phoneNumber") val phoneNumber: String?,
 )
 
@@ -36,7 +36,7 @@ data class Individual @JsonCreator constructor(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class BankAccount @JsonCreator constructor(
-    @JsonProperty("number") val number: String,
+    @JsonProperty("number") @JsonDeserialize(using = StringDeserializer::class) val number: String,
     @JsonProperty("iban") val iban: String?,
     @JsonProperty("bankBranch") val bankBranch: String?,
 )
@@ -47,7 +47,7 @@ data class BankAccount @JsonCreator constructor(
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Salary @JsonCreator constructor(
     @JsonProperty("amount") @JsonDeserialize(using = StringBigDecimalDeserializer::class) val amount: BigDecimal,
-    @JsonProperty("currency") val currency: String,
+    @JsonProperty("currency") @JsonDeserialize(using = StringDeserializer::class) val currency: String,
     @JsonProperty("period") val period: Period,
 )
 
@@ -56,7 +56,7 @@ data class Salary @JsonCreator constructor(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Entity @JsonCreator constructor(
-    @JsonProperty("name") val name: String,
+    @JsonProperty("name") val name: String?,
     @JsonProperty("region") val region: String?,
 )
 
@@ -65,8 +65,8 @@ data class Entity @JsonCreator constructor(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class Period @JsonCreator constructor(
-    @JsonProperty("year") val year: String,
-    @JsonProperty("month") val month: String,
+    @JsonProperty("year") @JsonDeserialize(using = StringDeserializer::class) val year: String,
+    @JsonProperty("month") @JsonDeserialize(using = StringDeserializer::class) val month: String,
 )
 
 /**
@@ -74,8 +74,8 @@ data class Period @JsonCreator constructor(
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class RejectionReason @JsonCreator constructor(
-    @JsonProperty("code") val code: String,
-    @JsonProperty("name") val name: String,
+    @JsonProperty("code") @JsonDeserialize(using = StringDeserializer::class) val code: String,
+    @JsonProperty("name") @JsonDeserialize(using = StringDeserializer::class) val name: String,
 )
 
 /**
