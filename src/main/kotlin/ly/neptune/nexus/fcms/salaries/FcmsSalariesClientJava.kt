@@ -69,6 +69,13 @@ class FcmsSalariesClientJava private constructor(
     fun listRejectionReasons(options: RequestOptions?): CompletableFuture<List<RejectionReason>> =
         scope.future { delegate.listRejectionReasons(options) }
 
+    /**
+     * Health check to verify connectivity and authentication with FCMS.
+     * Returns a [HealthCheckResult] with status, latency, and any error details.
+     */
+    fun healthCheck(options: RequestOptions?): CompletableFuture<HealthCheckResult> =
+        scope.future { delegate.healthCheck(options) }
+
     fun listArchivedTransactions(
         page: Int?,
         options: RequestOptions?

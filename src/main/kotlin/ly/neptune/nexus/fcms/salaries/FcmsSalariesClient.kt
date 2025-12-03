@@ -52,6 +52,12 @@ interface FcmsSalariesClient : AutoCloseable {
     /** List supported rejection reasons. */
     suspend fun listRejectionReasons(options: RequestOptions? = null): List<RejectionReason>
 
+    /** 
+     * Health check to verify connectivity and authentication with FCMS.
+     * Returns a [HealthCheckResult] with status, latency, and any error details.
+     */
+    suspend fun healthCheck(options: RequestOptions? = null): HealthCheckResult
+
     /** List archived transactions with optional page parameter. */
     suspend fun listArchivedTransactions(page: Int? = null, options: RequestOptions? = null): Page<Transaction>
 
@@ -112,3 +118,51 @@ data class SalariesListFilter(
     val year: Int? = null,
     val month: Int? = null,
 )
+
+/**
+ * Result of a health check against FCMS.
+ *
+ * @property healthy True if the connection and authentication succeeded.
+ * @property latencyMs Round-trip latency in milliseconds.
+ * @property statusCode HTTP status code (null if connection failed before HTTP response).
+ * @property errorMessage Error message if unhealthy.
+ * @property errorType Type of error: "connection", "authentication", "server", or null if healthy.
+ */
+data class HealthCheckResult(
+    val healthy: Boolean,
+    val latencyMs: Long,
+    val statusCode: Int? = null,
+    val errorMessage: String? = null,
+    val errorType: String? = null,
+) {
+    companion object {
+        fun success(latencyMs: Long): HealthCheckResult =
+            HealthCheckResult(healthy = true, latencyMs = latencyMs, statusCode = 200)
+
+        fun connectionError(latencyMs: Long, message: String): HealthCheckResult =
+            HealthCheckResult(
+                healthy = false,
+                latencyMs = latencyMs,
+                errorMessage = message,
+                errorType = "connection"
+            )
+
+        fun authenticationError(latencyMs: Long, statusCode: Int, message: String?): HealthCheckResult =
+            HealthCheckResult(
+                healthy = false,
+                latencyMs = latencyMs,
+                statusCode = statusCode,
+                errorMessage = message ?: "Authentication failed",
+                errorType = "authentication"
+            )
+
+        fun serverError(latencyMs: Long, statusCode: Int, message: String?): HealthCheckResult =
+            HealthCheckResult(
+                healthy = false,
+                latencyMs = latencyMs,
+                statusCode = statusCode,
+                errorMessage = message ?: "Server error",
+                errorType = "server"
+            )
+    }
+}

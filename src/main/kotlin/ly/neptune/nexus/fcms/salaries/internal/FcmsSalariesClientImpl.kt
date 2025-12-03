@@ -4,6 +4,7 @@ package ly.neptune.nexus.fcms.salaries.internal
 import com.fasterxml.jackson.databind.node.ObjectNode
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.salaries.FcmsSalariesClient
+import ly.neptune.nexus.fcms.salaries.HealthCheckResult
 import ly.neptune.nexus.fcms.salaries.SalariesListFilter
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.core.http.FcmsHttpException
@@ -234,6 +235,59 @@ internal class FcmsSalariesClientImpl(
         body.use { rb ->
             val pr = JsonSupport.readListEnvelope(rb.byteStream(), RejectionReason::class.java)
             return pr.data
+        }
+    }
+
+    override suspend fun healthCheck(options: RequestOptions?): HealthCheckResult {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/misc/mof/rejection-reasons"
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .build()
+        
+        val startTime = System.currentTimeMillis()
+        return try {
+            val call = client.newCall(req)
+            val resp = call.execute()
+            val latency = System.currentTimeMillis() - startTime
+            
+            resp.use { response ->
+                when {
+                    response.isSuccessful -> {
+                        log.info("FCMS Health Check: OK ({} ms)", latency)
+                        HealthCheckResult.success(latency)
+                    }
+                    response.code in 401..403 -> {
+                        val msg = tryExtractErrorMessage(response)
+                        log.warn("FCMS Health Check: Authentication failed - {} ({} ms)", response.code, latency)
+                        HealthCheckResult.authenticationError(latency, response.code, msg)
+                    }
+                    else -> {
+                        val msg = tryExtractErrorMessage(response)
+                        log.warn("FCMS Health Check: Server error - {} ({} ms)", response.code, latency)
+                        HealthCheckResult.serverError(latency, response.code, msg)
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            val latency = System.currentTimeMillis() - startTime
+            log.error("FCMS Health Check: Connection failed - {} ({} ms)", e.message, latency)
+            HealthCheckResult.connectionError(latency, e.message ?: "Connection failed")
+        }
+    }
+
+    private fun tryExtractErrorMessage(response: Response): String? {
+        return try {
+            val bodyStr = response.body?.string()
+            if (!bodyStr.isNullOrBlank()) {
+                val node = json.readTree(bodyStr)
+                node.get("message")?.asText()
+            } else null
+        } catch (_: Exception) {
+            null
         }
     }
 
