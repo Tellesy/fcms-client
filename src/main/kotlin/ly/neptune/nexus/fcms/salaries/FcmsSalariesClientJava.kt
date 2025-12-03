@@ -127,6 +127,59 @@ class FcmsSalariesClientJava private constructor(
     ): CompletableFuture<Page<Transaction>> =
         scope.future { delegate.listTransactionsByYearMonthState(year, month, state, page, options) }
 
+    /**
+     * Get just the state of a transaction by UUID.
+     * Useful for verifying actual transaction state after receiving error responses.
+     */
+    fun getTransactionState(
+        uuid: String,
+        options: RequestOptions?
+    ): CompletableFuture<String> =
+        scope.future { delegate.getTransactionState(uuid, options) }
+
+    /**
+     * Verify if a transaction is actually completed.
+     * Use this after receiving FCMS028 error to confirm the transaction was really completed.
+     */
+    fun isTransactionCompleted(
+        uuid: String,
+        options: RequestOptions?
+    ): CompletableFuture<Boolean> =
+        scope.future { delegate.isTransactionCompleted(uuid, options) }
+
+    /**
+     * Verify transaction state and return detailed result.
+     * Use this after receiving FCMS028 ("already completed") error to verify actual state.
+     * 
+     * Example usage:
+     * ```java
+     * try {
+     *     fcmsClient.completeTransaction(uuid, request, null).join();
+     * } catch (CompletionException e) {
+     *     if (e.getCause() instanceof FcmsHttpException) {
+     *         FcmsHttpException fcmsEx = (FcmsHttpException) e.getCause();
+     *         if ("FCMS028".equals(fcmsEx.getCode())) {
+     *             // FCMS says "already completed" - verify!
+     *             TransactionVerificationResult result = 
+     *                 fcmsClient.verifyTransactionState(uuid, "completed", null).join();
+     *             if (result.getFcmsLied()) {
+     *                 log.warn("FCMS028 but tx still {}, will retry", result.getActualState());
+     *                 // Don't mark as completed, retry later
+     *             } else {
+     *                 // Actually completed, safe to mark as done
+     *             }
+     *         }
+     *     }
+     * }
+     * ```
+     */
+    fun verifyTransactionState(
+        uuid: String,
+        expectedState: String,
+        options: RequestOptions?
+    ): CompletableFuture<TransactionVerificationResult> =
+        scope.future { delegate.verifyTransactionState(uuid, expectedState, options) }
+
     override fun close() {
         delegate.close()
     }

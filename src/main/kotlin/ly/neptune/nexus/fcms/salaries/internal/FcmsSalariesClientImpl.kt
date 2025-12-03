@@ -183,10 +183,12 @@ internal class FcmsSalariesClientImpl(
         val base = effectiveBaseUrl(options)
         val url = "$base/api/v1/mof/transactions/$uuid/complete"
         val payload = json.writeValueAsString(request)
+        val requestBody = payload.toRequestBody(jsonMedia)
         val req = Request.Builder()
             .url(url)
-            .post(payload.toRequestBody(jsonMedia))
+            .post(requestBody)
             .header("User-Agent", config.userAgent)
+            .header("Content-Type", "application/json")
             .applyAuth(options)
             .applyReadOverride(options)
             .build()
@@ -195,11 +197,44 @@ internal class FcmsSalariesClientImpl(
         val maskedAuth = if (authHeader != null && authHeader.length > 15) {
             authHeader.substring(0, 15) + "..." + authHeader.takeLast(4)
         } else authHeader
-        log.info("FCMS completeTransaction REQUEST: method={}, url={}, auth={}, body={}", 
-            req.method, req.url, maskedAuth, payload)
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), Transaction::class.java)
+        val contentType = req.header("Content-Type") ?: requestBody.contentType()?.toString()
+        log.info("FCMS completeTransaction REQUEST: method={}, url={}, contentType={}, auth={}, body={}", 
+            req.method, req.url, contentType, maskedAuth, payload)
+        
+        try {
+            val body = executeWithRetries(req, isIdempotent = false)
+            body.use { rb ->
+                return JsonSupport.readSingleEnvelope(rb.byteStream(), Transaction::class.java)
+            }
+        } catch (ex: FcmsHttpException) {
+            // FCMS028 = "already completed" - but FCMS sometimes lies!
+            // Verify actual state before propagating error
+            if (ex.status == 403 && ex.code == "FCMS028") {
+                log.warn("FCMS028 received for uuid={}, verifying actual state...", uuid)
+                try {
+                    val tx = showTransaction(uuid, options)
+                    if (tx.state == "completed") {
+                        log.info("FCMS028 verified: uuid={} is actually completed", uuid)
+                        return tx
+                    } else {
+                        log.error("FCMS028 LIE DETECTED: uuid={} state is '{}' not 'completed'! " +
+                            "FCMS returned false 'already completed' error", uuid, tx.state)
+                        // Re-throw with additional context
+                        throw FcmsHttpException(
+                            status = ex.status,
+                            code = ex.code,
+                            message = "FCMS028 but state=${tx.state} (FCMS bug - transaction NOT completed)",
+                            body = ex.body,
+                            headers = ex.headers,
+                            retryAfterSeconds = ex.retryAfterSeconds
+                        )
+                    }
+                } catch (verifyEx: Exception) {
+                    log.error("Failed to verify transaction state after FCMS028: {}", verifyEx.message)
+                    throw ex // Re-throw original
+                }
+            }
+            throw ex
         }
     }
 
@@ -439,8 +474,12 @@ internal class FcmsSalariesClientImpl(
     ): okhttp3.ResponseBody {
         log.debug("FCMS Request: {} {}", req.method, req.url)
         var attempt = 0
-        val enable = config.enableRetries && (isIdempotent)
-        val max = if (enable) config.maxRetries.coerceAtLeast(0) else 0
+        // For HTTP status retries, only retry idempotent requests
+        val enableHttpRetry = config.enableRetries && isIdempotent
+        // For IO errors (connection reset, timeout), always retry if retries enabled
+        // because the request may not have reached the server
+        val enableIoRetry = config.enableRetries
+        val max = if (config.enableRetries) config.maxRetries.coerceAtLeast(0) else 0
         while (true) {
             try {
                 val call = client.newCall(req)
@@ -460,7 +499,7 @@ internal class FcmsSalariesClientImpl(
                 log.warn("FCMS Error Response: {} {} -> {} ({} ms) - {}", 
                     req.method, req.url, resp.code, duration, ex.message ?: ex.body)
                 resp.closeQuietly()
-                if (enable && shouldRetry(ex.status)) {
+                if (enableHttpRetry && shouldRetry(ex.status)) {
                     val delayMs = computeBackoff(attempt, ex.retryAfterSeconds)
                     if (attempt < max) {
                         attempt++
@@ -473,7 +512,11 @@ internal class FcmsSalariesClientImpl(
                 throw ex
             } catch (io: IOException) {
                 log.error("FCMS IO Error: {} {} - {}", req.method, req.url, io.message)
-                if (enable && attempt < max) {
+                // Evict stale connections on IO errors (timeout, socket closed, etc.)
+                client.connectionPool.evictAll()
+                log.debug("FCMS: Evicted connection pool after IO error")
+                // Always retry IO errors if retries enabled - request may not have reached server
+                if (enableIoRetry && attempt < max) {
                     attempt++
                     val delayMs = computeBackoff(attempt, null)
                     log.info("FCMS Retry after IO error: attempt {} of {} (delay {} ms)", attempt, max, delayMs)

@@ -110,6 +110,42 @@ interface FcmsSalariesClient : AutoCloseable {
             SalariesListFilter(state = state, year = year, month = month),
             options,
         )
+
+    /**
+     * Get just the state of a transaction by UUID.
+     * Useful for verifying actual transaction state after receiving error responses.
+     * @return The transaction state (e.g., "pending", "completed", "rejected")
+     */
+    suspend fun getTransactionState(uuid: String, options: RequestOptions? = null): String =
+        showTransaction(uuid, options).state
+
+    /**
+     * Verify if a transaction is actually completed.
+     * Use this after receiving FCMS028 error to confirm the transaction was really completed.
+     * @return true if transaction state is "completed", false otherwise
+     */
+    suspend fun isTransactionCompleted(uuid: String, options: RequestOptions? = null): Boolean =
+        getTransactionState(uuid, options) == "completed"
+
+    /**
+     * Verify transaction state and return detailed result.
+     * Use this after receiving FCMS028 ("already completed") error to verify actual state.
+     * @return [TransactionVerificationResult] with actual state and whether it matches expected
+     */
+    suspend fun verifyTransactionState(
+        uuid: String,
+        expectedState: String = "completed",
+        options: RequestOptions? = null
+    ): TransactionVerificationResult {
+        val tx = showTransaction(uuid, options)
+        return TransactionVerificationResult(
+            uuid = uuid,
+            actualState = tx.state,
+            expectedState = expectedState,
+            matches = tx.state == expectedState,
+            transaction = tx
+        )
+    }
 }
 
 /** Query filters for listing salary transactions. */
@@ -118,6 +154,30 @@ data class SalariesListFilter(
     val year: Int? = null,
     val month: Int? = null,
 )
+
+/**
+ * Result of verifying a transaction's actual state against expected state.
+ * Use this to confirm FCMS error responses match reality.
+ *
+ * @property uuid The transaction UUID that was verified.
+ * @property actualState The actual state from FCMS (e.g., "pending", "completed", "rejected").
+ * @property expectedState The state we expected (usually "completed" when verifying FCMS028).
+ * @property matches True if actualState equals expectedState.
+ * @property transaction The full transaction object for additional inspection.
+ */
+data class TransactionVerificationResult(
+    val uuid: String,
+    val actualState: String,
+    val expectedState: String,
+    val matches: Boolean,
+    val transaction: Transaction,
+) {
+    /** True if FCMS lied - error said completed but transaction is not actually completed. */
+    val fcmsLied: Boolean get() = !matches && expectedState == "completed"
+    
+    /** True if transaction is still pending and should be retried. */
+    val shouldRetry: Boolean get() = actualState == "pending"
+}
 
 /**
  * Result of a health check against FCMS.
