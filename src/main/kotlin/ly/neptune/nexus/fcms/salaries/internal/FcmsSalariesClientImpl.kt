@@ -16,6 +16,7 @@ import ly.neptune.nexus.fcms.salaries.model.request.BulkCompleteTransactionReque
 import ly.neptune.nexus.fcms.salaries.model.request.CompleteTransactionRequest
 import ly.neptune.nexus.fcms.salaries.model.response.BulkCompleteTransactionResponse
 import kotlinx.coroutines.delay
+import org.slf4j.LoggerFactory
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -33,6 +34,7 @@ internal class FcmsSalariesClientImpl(
     private val config: FcmsConfig,
 ) : FcmsSalariesClient {
 
+    private val log = LoggerFactory.getLogger(FcmsSalariesClientImpl::class.java)
     private val client = OkHttpProvider.create(config)
     private val json = JsonSupport.mapper
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
@@ -179,8 +181,8 @@ internal class FcmsSalariesClientImpl(
     ): Transaction {
         val base = effectiveBaseUrl(options)
         val url = "$base/api/v1/mof/transactions/$uuid/complete"
-        println("DEBUG FCMS: completeTransaction called with uuid=$uuid, URL=$url") // DEBUG
         val payload = json.writeValueAsString(request)
+        log.debug("FCMS completeTransaction: uuid={}, url={}, payload={}", uuid, url, payload)
         val req = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(jsonMedia))
@@ -188,7 +190,6 @@ internal class FcmsSalariesClientImpl(
             .applyAuth(options)
             .applyReadOverride(options)
             .build()
-        println("DEBUG FCMS: Request URL = ${req.url}") // DEBUG
         val body = executeWithRetries(req, isIdempotent = false)
         body.use { rb ->
             return JsonSupport.readSingleEnvelope(rb.byteStream(), Transaction::class.java)
@@ -205,6 +206,7 @@ internal class FcmsSalariesClientImpl(
         val node: ObjectNode = json.createObjectNode()
         node.put("rejection_reason", rejectionReason)
         val payload = json.writeValueAsString(node)
+        log.debug("FCMS rejectTransaction: uuid={}, reason={}", uuid, rejectionReason)
         val req = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(jsonMedia))
@@ -320,6 +322,8 @@ internal class FcmsSalariesClientImpl(
         val base = effectiveBaseUrl(options)
         val url = "$base/api/v1/mof/transactions/bulk-complete"
         val payload = json.writeValueAsString(request)
+        log.debug("FCMS bulkCompleteTransactions: count={}, url={}", request.transactions.size, url)
+        log.trace("FCMS bulkCompleteTransactions payload: {}", payload)
         val req = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(jsonMedia))
@@ -361,16 +365,19 @@ internal class FcmsSalariesClientImpl(
         req: Request,
         isIdempotent: Boolean
     ): okhttp3.ResponseBody {
-        println("DEBUG FCMS executeWithRetries: About to call URL: ${req.url}") // DEBUG
+        log.debug("FCMS Request: {} {}", req.method, req.url)
         var attempt = 0
         val enable = config.enableRetries && (isIdempotent)
         val max = if (enable) config.maxRetries.coerceAtLeast(0) else 0
         while (true) {
             try {
                 val call = client.newCall(req)
-                println("DEBUG FCMS executeWithRetries: Executing call to: ${call.request().url}") // DEBUG
+                val startTime = System.currentTimeMillis()
                 val resp = call.execute()
+                val duration = System.currentTimeMillis() - startTime
+                
                 if (resp.isSuccessful) {
+                    log.info("FCMS Response: {} {} -> {} ({} ms)", req.method, req.url, resp.code, duration)
                     return resp.body ?: run {
                         resp.closeQuietly()
                         throw IOException("Empty response body")
@@ -378,20 +385,26 @@ internal class FcmsSalariesClientImpl(
                 }
                 // Non-2xx
                 val ex = toHttpException(resp)
+                log.warn("FCMS Error Response: {} {} -> {} ({} ms) - {}", 
+                    req.method, req.url, resp.code, duration, ex.message ?: ex.body)
                 resp.closeQuietly()
                 if (enable && shouldRetry(ex.status)) {
                     val delayMs = computeBackoff(attempt, ex.retryAfterSeconds)
                     if (attempt < max) {
                         attempt++
+                        log.info("FCMS Retry: attempt {} of {} for {} {} (delay {} ms)", 
+                            attempt, max, req.method, req.url, delayMs)
                         delay(delayMs)
                         continue
                     }
                 }
                 throw ex
             } catch (io: IOException) {
+                log.error("FCMS IO Error: {} {} - {}", req.method, req.url, io.message)
                 if (enable && attempt < max) {
                     attempt++
                     val delayMs = computeBackoff(attempt, null)
+                    log.info("FCMS Retry after IO error: attempt {} of {} (delay {} ms)", attempt, max, delayMs)
                     delay(delayMs)
                     continue
                 }
@@ -425,7 +438,7 @@ internal class FcmsSalariesClientImpl(
         } catch (e: Exception) {
             null
         }
-        println("DEBUG FCMS toHttpException: status=$status, URL=${resp.request.url}, body=$bodyStr") // DEBUG
+        log.debug("FCMS Error Details: status={}, url={}, body={}", status, resp.request.url, bodyStr)
         var code: String? = null
         var message: String? = null
         if (!bodyStr.isNullOrBlank()) {
@@ -433,7 +446,7 @@ internal class FcmsSalariesClientImpl(
                 val node = json.readTree(bodyStr)
                 message = node.get("message")?.asText() ?: message
                 code = node.get("code")?.asText() ?: code
-                println("DEBUG FCMS toHttpException: Extracted message='$message', code='$code'") // DEBUG
+                log.debug("FCMS Error Parsed: code={}, message={}", code, message)
             } catch (_: Exception) {
                 // ignore JSON parse errors for body
             }
