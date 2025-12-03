@@ -183,7 +183,6 @@ internal class FcmsSalariesClientImpl(
         val base = effectiveBaseUrl(options)
         val url = "$base/api/v1/mof/transactions/$uuid/complete"
         val payload = json.writeValueAsString(request)
-        log.debug("FCMS completeTransaction: uuid={}, url={}, payload={}", uuid, url, payload)
         val req = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(jsonMedia))
@@ -191,6 +190,13 @@ internal class FcmsSalariesClientImpl(
             .applyAuth(options)
             .applyReadOverride(options)
             .build()
+        // Log full request details for debugging
+        val authHeader = req.header("Authorization")
+        val maskedAuth = if (authHeader != null && authHeader.length > 15) {
+            authHeader.substring(0, 15) + "..." + authHeader.takeLast(4)
+        } else authHeader
+        log.info("FCMS completeTransaction REQUEST: method={}, url={}, auth={}, body={}", 
+            req.method, req.url, maskedAuth, payload)
         val body = executeWithRetries(req, isIdempotent = false)
         body.use { rb ->
             return JsonSupport.readSingleEnvelope(rb.byteStream(), Transaction::class.java)
@@ -284,7 +290,13 @@ internal class FcmsSalariesClientImpl(
             val bodyStr = response.body?.string()
             if (!bodyStr.isNullOrBlank()) {
                 val node = json.readTree(bodyStr)
-                node.get("message")?.asText()
+                // FCMS returns errors in nested structure: {"error":{"code":"...","message":"..."}}
+                val errorNode = node.get("error")
+                if (errorNode != null && errorNode.isObject) {
+                    errorNode.get("message")?.asText()
+                } else {
+                    node.get("message")?.asText()
+                }
             } else null
         } catch (_: Exception) {
             null
@@ -376,8 +388,6 @@ internal class FcmsSalariesClientImpl(
         val base = effectiveBaseUrl(options)
         val url = "$base/api/v1/mof/transactions/bulk-complete"
         val payload = json.writeValueAsString(request)
-        log.debug("FCMS bulkCompleteTransactions: count={}, url={}", request.transactions.size, url)
-        log.trace("FCMS bulkCompleteTransactions payload: {}", payload)
         val req = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(jsonMedia))
@@ -385,6 +395,14 @@ internal class FcmsSalariesClientImpl(
             .applyAuth(options)
             .applyReadOverride(options)
             .build()
+        // Log full request details for debugging
+        val authHeader = req.header("Authorization")
+        val maskedAuth = if (authHeader != null && authHeader.length > 15) {
+            authHeader.substring(0, 15) + "..." + authHeader.takeLast(4)
+        } else authHeader
+        log.info("FCMS bulkCompleteTransactions REQUEST: method={}, url={}, auth={}, count={}", 
+            req.method, req.url, maskedAuth, request.transactions.size)
+        log.debug("FCMS bulkCompleteTransactions payload: {}", payload)
         val body = executeWithRetries(req, isIdempotent = false)
         body.use { rb ->
             return JsonSupport.readSingleEnvelope(rb.byteStream(), BulkCompleteTransactionResponse::class.java)
@@ -498,8 +516,15 @@ internal class FcmsSalariesClientImpl(
         if (!bodyStr.isNullOrBlank()) {
             try {
                 val node = json.readTree(bodyStr)
-                message = node.get("message")?.asText() ?: message
-                code = node.get("code")?.asText() ?: code
+                // FCMS returns errors in nested structure: {"error":{"code":"FCMS028","message":"..."}}
+                val errorNode = node.get("error")
+                if (errorNode != null && errorNode.isObject) {
+                    code = errorNode.get("code")?.asText()
+                    message = errorNode.get("message")?.asText()
+                }
+                // Fallback to root level if not in nested structure
+                if (code == null) code = node.get("code")?.asText()
+                if (message == null) message = node.get("message")?.asText()
                 log.debug("FCMS Error Parsed: code={}, message={}", code, message)
             } catch (_: Exception) {
                 // ignore JSON parse errors for body
