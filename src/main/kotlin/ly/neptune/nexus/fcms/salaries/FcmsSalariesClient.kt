@@ -4,7 +4,9 @@ import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.salaries.model.Transaction
 import ly.neptune.nexus.fcms.salaries.model.Page
 import ly.neptune.nexus.fcms.salaries.model.RejectionReason
+import ly.neptune.nexus.fcms.salaries.model.request.BulkCompleteTransactionRequest
 import ly.neptune.nexus.fcms.salaries.model.request.CompleteTransactionRequest
+import ly.neptune.nexus.fcms.salaries.model.response.BulkCompleteTransactionResponse
 
 /**
  * Main FCMS Salaries client interface.
@@ -49,6 +51,22 @@ interface FcmsSalariesClient : AutoCloseable {
 
     /** List supported rejection reasons. */
     suspend fun listRejectionReasons(options: RequestOptions? = null): List<RejectionReason>
+
+    /** List archived transactions with optional page parameter. */
+    suspend fun listArchivedTransactions(page: Int? = null, options: RequestOptions? = null): Page<Transaction>
+
+    /** List archived transactions with optional page and typed filters. */
+    suspend fun listArchivedTransactionsFiltered(
+        page: Int? = null,
+        filter: SalariesListFilter? = null,
+        options: RequestOptions? = null
+    ): Page<Transaction>
+
+    /** Bulk complete multiple transactions at once. */
+    suspend fun bulkCompleteTransactions(
+        request: BulkCompleteTransactionRequest,
+        options: RequestOptions? = null
+    ): BulkCompleteTransactionResponse
 
     // Convenience helpers
     /** list with filter[state]=<state> */

@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.9.24"
+    kotlin("jvm") version "2.0.21"
     id("java-library")
     id("maven-publish")
     id("org.jetbrains.dokka") version "1.9.20"
@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.tellesy"
-version = "1.0.4"
+version = "1.1.2"
 
 java {
     toolchain {
@@ -21,7 +21,26 @@ repositories {
     mavenCentral()
 }
 
-val jacksonVersion = "2.17.1"
+configurations.matching { 
+    // Apply force only to runtime/compile configurations, not dokka or detekt
+    it.name.startsWith("runtime") || it.name.startsWith("compile") || it.name == "api" || it.name == "implementation"
+}.all {
+    resolutionStrategy {
+        // Force consistent Jackson versions across all dependencies
+        force("com.fasterxml.jackson.core:jackson-databind:2.19.2")
+        force("com.fasterxml.jackson.core:jackson-core:2.19.2")
+        force("com.fasterxml.jackson.core:jackson-annotations:2.19.2")
+        force("com.fasterxml.jackson.module:jackson-module-kotlin:2.19.2")
+        
+        // Force consistent Kotlin versions
+        force("org.jetbrains.kotlin:kotlin-stdlib:2.0.21")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21")
+        force("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.0.21")
+        force("org.jetbrains.kotlin:kotlin-reflect:2.0.21")
+    }
+}
+
+val jacksonVersion = "2.19.2"
 val okhttpVersion = "4.12.0"
 val slf4jVersion = "2.0.13"
 val junitVersion = "5.10.2"
@@ -68,14 +87,20 @@ val isPublishToMavenLocal: Boolean = gradle.startParameter.taskNames.any { it.co
 println("Signing diagnostics -> source=" + signingKeySource + ", keyPresent=" + (signingKeyProp != null) + ", headerOk=" + (signingKeyProp?.trimStart()?.startsWith("-----BEGIN PGP PRIVATE KEY BLOCK-----") == true))
 
 dependencies {
+    // Kotlin BOM for version alignment
+    implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.0.21"))
+    
+    // Jackson BOM for version alignment
+    implementation(platform("com.fasterxml.jackson:jackson-bom:$jacksonVersion"))
+    
     // Core
     api("com.squareup.okhttp3:okhttp:$okhttpVersion")
     api("org.slf4j:slf4j-api:$slf4jVersion")
 
-    // JSON (Jackson)
-    implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
-    implementation("com.fasterxml.jackson.core:jackson-core:$jacksonVersion")
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
+    // JSON (Jackson) - versions managed by BOM
+    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.core:jackson-core")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
     // Coroutines for suspend functions and Java CompletableFuture bridge
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")

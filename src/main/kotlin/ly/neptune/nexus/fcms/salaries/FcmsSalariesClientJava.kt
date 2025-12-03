@@ -7,7 +7,9 @@ import ly.neptune.nexus.fcms.salaries.SalariesListFilter
 import ly.neptune.nexus.fcms.salaries.model.Page
 import ly.neptune.nexus.fcms.salaries.model.Transaction
 import ly.neptune.nexus.fcms.salaries.model.RejectionReason
+import ly.neptune.nexus.fcms.salaries.model.request.BulkCompleteTransactionRequest
 import ly.neptune.nexus.fcms.salaries.model.request.CompleteTransactionRequest
+import ly.neptune.nexus.fcms.salaries.model.response.BulkCompleteTransactionResponse
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -66,6 +68,25 @@ class FcmsSalariesClientJava private constructor(
 
     fun listRejectionReasons(options: RequestOptions?): CompletableFuture<List<RejectionReason>> =
         scope.future { delegate.listRejectionReasons(options) }
+
+    fun listArchivedTransactions(
+        page: Int?,
+        options: RequestOptions?
+    ): CompletableFuture<Page<Transaction>> =
+        scope.future { delegate.listArchivedTransactions(page, options) }
+
+    fun listArchivedTransactions(
+        page: Int?,
+        filter: SalariesListFilter?,
+        options: RequestOptions?
+    ): CompletableFuture<Page<Transaction>> =
+        scope.future { delegate.listArchivedTransactionsFiltered(page, filter, options) }
+
+    fun bulkCompleteTransactions(
+        request: BulkCompleteTransactionRequest,
+        options: RequestOptions?
+    ): CompletableFuture<BulkCompleteTransactionResponse> =
+        scope.future { delegate.bulkCompleteTransactions(request, options) }
 
     // Convenience wrappers
     fun listTransactionsByState(

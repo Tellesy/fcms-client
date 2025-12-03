@@ -27,7 +27,9 @@ data class Transaction @JsonCreator constructor(
 data class Individual @JsonCreator constructor(
     @JsonProperty("name") @JsonDeserialize(using = StringDeserializer::class) val name: String,
     @JsonProperty("nid") @JsonDeserialize(using = StringDeserializer::class) val nid: String,
-    @JsonProperty("mofFinancialNumber") @JsonDeserialize(using = StringDeserializer::class) val mofFinancialNumber: String,
+    @JsonProperty("mofFinancialNumber")
+    @JsonDeserialize(using = StringDeserializer::class)
+    val mofFinancialNumber: String,
     @JsonProperty("phoneNumber") val phoneNumber: String?,
 )
 

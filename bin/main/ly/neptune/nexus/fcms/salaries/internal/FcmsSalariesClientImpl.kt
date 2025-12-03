@@ -12,9 +12,7 @@ import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.salaries.model.Page
 import ly.neptune.nexus.fcms.salaries.model.RejectionReason
 import ly.neptune.nexus.fcms.salaries.model.Transaction
-import ly.neptune.nexus.fcms.salaries.model.request.BulkCompleteTransactionRequest
 import ly.neptune.nexus.fcms.salaries.model.request.CompleteTransactionRequest
-import ly.neptune.nexus.fcms.salaries.model.response.BulkCompleteTransactionResponse
 import kotlinx.coroutines.delay
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -89,8 +87,8 @@ internal class FcmsSalariesClientImpl(
             if (page != null) addParam("page", page.toString())
             if (filter != null) {
                 addParam("filter[state]", filter.state)
-                addParam("filter[salary_year]", filter.year?.toString())
-                addParam("filter[salary_month]", filter.month?.toString())
+                addParam("filter[year]", filter.year?.toString())
+                addParam("filter[month]", filter.month?.toString())
             }
             addParam("limit", "500")
         }
@@ -232,104 +230,6 @@ internal class FcmsSalariesClientImpl(
         body.use { rb ->
             val pr = JsonSupport.readListEnvelope(rb.byteStream(), RejectionReason::class.java)
             return pr.data
-        }
-    }
-
-    override suspend fun listArchivedTransactions(page: Int?, options: RequestOptions?): Page<Transaction> {
-        val base = effectiveBaseUrl(options)
-        val url = buildString {
-            append(base)
-            append("/api/v1/mof/archived-transactions")
-            if (page != null) {
-                append("?page=").append(page)
-                append("&limit=500")
-            } else {
-                append("?limit=500")
-            }
-        }
-        val req = Request.Builder()
-            .url(url)
-            .get()
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = true)
-        body.use { rb ->
-            val pr = JsonSupport.readListEnvelope(rb.byteStream(), Transaction::class.java)
-            return Page(
-                data = pr.data,
-                total = pr.total,
-                perPage = pr.perPage,
-                currentPage = pr.currentPage,
-                next = pr.next,
-                prev = pr.prev,
-            )
-        }
-    }
-
-    override suspend fun listArchivedTransactionsFiltered(
-        page: Int?,
-        filter: SalariesListFilter?,
-        options: RequestOptions?
-    ): Page<Transaction> {
-        val base = effectiveBaseUrl(options)
-        val url = buildString {
-            append(base)
-            append("/api/v1/mof/archived-transactions")
-            var first = true
-            fun addParam(k: String, v: String?) {
-                if (v.isNullOrBlank()) return
-                append(if (first) "?" else "&")
-                first = false
-                append(k).append("=").append(v)
-            }
-            if (page != null) addParam("page", page.toString())
-            if (filter != null) {
-                addParam("filter[state]", filter.state)
-                addParam("filter[salary_year]", filter.year?.toString())
-                addParam("filter[salary_month]", filter.month?.toString())
-            }
-            addParam("limit", "500")
-        }
-        val req = Request.Builder()
-            .url(url)
-            .get()
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = true)
-        body.use { rb ->
-            val pr = JsonSupport.readListEnvelope(rb.byteStream(), Transaction::class.java)
-            return Page(
-                data = pr.data,
-                total = pr.total,
-                perPage = pr.perPage,
-                currentPage = pr.currentPage,
-                next = pr.next,
-                prev = pr.prev,
-            )
-        }
-    }
-
-    override suspend fun bulkCompleteTransactions(
-        request: BulkCompleteTransactionRequest,
-        options: RequestOptions?
-    ): BulkCompleteTransactionResponse {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/mof/transactions/bulk-complete"
-        val payload = json.writeValueAsString(request)
-        val req = Request.Builder()
-            .url(url)
-            .post(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), BulkCompleteTransactionResponse::class.java)
         }
     }
 
