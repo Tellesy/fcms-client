@@ -2,18 +2,18 @@
 
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.tellesy/fcms-client.svg?label=Maven%20Central)](https://central.sonatype.com/artifact/io.github.tellesy/fcms-client)
 
-A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). Works in any Kotlin or Java app (no Spring dependency). Optimized for performance and correctness.
+A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests, Business Purchase Requests, Invoiced Purchase Requests, Miscs, Reports, FX Houses). Works in any Kotlin or Java app (no Spring dependency). Optimized for performance and correctness.
 
 - Group: `io.github.tellesy`
 - Artifact: `fcms-client`
-- Version: `1.0.4`
+- Version: `1.2.0`
 - JVM: Java 21+
 
-## What's New in 1.0.4
+## What's New in 1.2.0
 
-- Entity model: `name` is now nullable (`String?`) to gracefully handle nulls from the API.
-- Verified null-safe deserialization across optional fields (e.g., `bankAccount.bankBranch`, `transaction.description`).
-- No breaking API changes; this is a robustness update.
+- Full API coverage for the published Postman collection: Accounts, Requests, Business Purchase Requests, Invoiced Purchase Requests, Miscs, Reports, FX Houses.
+- Java `CompletableFuture` facades added for all client modules.
+- Strong shutdown semantics: all clients implement `close()` to cancel in-flight calls and shutdown OkHttp resources (safe for Spring Boot shutdown).
 
 ## Supported Endpoints
 
@@ -23,6 +23,14 @@ A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). 
 - POST `{baseUrl}/api/v1/mof/transactions/{uuid}/reject` → `Transaction`
 - GET `{baseUrl}/api/v1/misc/mof/rejection-reasons` → `List<RejectionReason>`
 
+- GET `{baseUrl}/api/v1/purchase-requests` → `Page<PurchaseRequest>`
+- GET `{baseUrl}/api/v1/purchase-requests/{uuid}` → `PurchaseRequest`
+- PATCH `{baseUrl}/api/v1/purchase-requests/{uuid}/approve` → `PurchaseRequest`
+- PATCH `{baseUrl}/api/v1/purchase-requests/{uuid}/decline` → `PurchaseRequest`
+- PATCH `{baseUrl}/api/v1/purchase-requests/{uuid}/process` → `PurchaseRequest`
+- GET `{baseUrl}/api/v1/deleted-purchase-requests` → `Page<DeletedPurchaseRequest>`
+- POST `{baseUrl}/api/v1/refresh-queue` → `RefreshQueueResult`
+
 - GET `{baseUrl}/api/v1/bank-accounts` → `Page<BankAccount>` (supports filters via `AccountsListFilter`)
 - PATCH `{baseUrl}/api/v1/bank-accounts/{uuid}/match` → `BankAccount`
 - PATCH `{baseUrl}/api/v1/bank-accounts/{uuid}/reject` → `BankAccount`
@@ -31,6 +39,45 @@ A small, dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). 
 
 - GET `{baseUrl}/api/v1/purchase-requests-queue` → `Page<PurchaseRequestQueueItem>`
 
+- Business Purchase Requests
+  - POST `{baseUrl}/api/v1/business-purchase-requests/check` → `BusinessPurchaseRequest`
+  - GET `{baseUrl}/api/v1/business-purchase-requests` → `Page<BusinessPurchaseRequest>`
+  - GET `{baseUrl}/api/v1/business-purchase-requests/{uuid}` → `BusinessPurchaseRequest`
+  - POST `{baseUrl}/api/v1/business-purchase-requests` → `BusinessPurchaseRequest`
+  - POST `{baseUrl}/api/v1/business-purchase-requests/{uuid}/close` → `BusinessPurchaseRequest` (multipart)
+  - PATCH `{baseUrl}/api/v1/business-purchase-requests/{uuid}/process` → `BusinessPurchaseRequest`
+
+- Invoiced Purchase Requests
+  - POST `{baseUrl}/api/v1/invoiced-purchase-requests` → `InvoicedPurchaseRequest` (multipart)
+  - GET `{baseUrl}/api/v1/invoiced-purchase-requests` → `Page<InvoicedPurchaseRequest>`
+  - GET `{baseUrl}/api/v1/invoiced-purchase-requests/{uuid}` → `InvoicedPurchaseRequest`
+  - PATCH `{baseUrl}/api/v1/invoiced-purchase-requests/{uuid}/process` → `InvoicedPurchaseRequest`
+
+- Miscs (lookups)
+  - GET `{baseUrl}/api/v1/miscs/bank-account-rejection-reasons` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/business-purchase-request-states` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/bank-branches` → `List<BankBranch>`
+  - GET `{baseUrl}/api/v1/miscs/business-activities` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/countries` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/currencies` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/exchange-rates` → `List<ExchangeRate>`
+  - GET `{baseUrl}/api/v1/miscs/invoiced-purchase-request-states` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/decline-reasons` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/purchase-request-states` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/purchase-request-types` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/bank-account-states` → `List<CodeName>`
+  - GET `{baseUrl}/api/v1/miscs/contract-reject-reasons` → `List<CodeName>`
+
+- Reports
+  - GET `{baseUrl}/api/v1/reports/purchase-requests-states` → `List<PurchaseRequestsStatesReportRow>`
+
+- FX Houses
+  - GET `{baseUrl}/api/v1/fx-houses` → `Page<FxHouse>`
+  - GET `{baseUrl}/api/v1/fx-houses/contracts` → `Page<FxContract>`
+  - PATCH `{baseUrl}/api/v1/fx-houses/contracts/{uuid}/approve` → `FxContract`
+  - PATCH `{baseUrl}/api/v1/fx-houses/contracts/{uuid}/process` → `FxContract`
+  - PATCH `{baseUrl}/api/v1/fx-houses/contracts/{uuid}/decline` → `FxContract`
+
 JSON is automatically unwrapped from envelopes like `{ "data": ... }`. Pagination is resilient to both Laravel shapes: root `links` object/array and `meta.links` arrays.
 
 ## Add Dependency
@@ -38,7 +85,7 @@ JSON is automatically unwrapped from envelopes like `{ "data": ... }`. Paginatio
 Gradle (Kotlin DSL):
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("io.github.tellesy:fcms-client:1.0.4") }
+dependencies { implementation("io.github.tellesy:fcms-client:1.2.0") }
 ```
 
 Maven:
@@ -46,7 +93,7 @@ Maven:
 <dependency>
   <groupId>io.github.tellesy</groupId>
   <artifactId>fcms-client</artifactId>
-  <version>1.0.4</version>
+  <version>1.2.0</version>
 </dependency>
 ```
 
@@ -70,6 +117,8 @@ suspend fun main() {
     val salaries = FcmsSalariesClients.create(config)
     val accounts = FcmsAccountsClients.create(config)
     val requests = FcmsRequestsClients.create(config)
+    val miscs = ly.neptune.nexus.fcms.miscs.FcmsMiscsClients.create(config)
+    val fx = ly.neptune.nexus.fcms.fxhouses.FcmsFxHousesClients.create(config)
 
     // Salaries
     val page1 = salaries.listTransactions(page = 1)
@@ -97,6 +146,10 @@ suspend fun main() {
     )
     // Requests (pending purchase requests queue)
     val queuePage = requests.listPendingRequests(page = 1)
+
+    // FX Houses
+    val fxHouses = fx.listFxHouses(page = 1)
+    val contracts = fx.listContracts(page = 1)
 }
 ```
 
@@ -291,9 +344,32 @@ Example (truncated):
 
 ## Threading and Cleanup
 
-- The client uses a single shared OkHttp `OkHttpClient` with HTTP/2, connection pooling, gzip.
-- Suspend APIs are non-blocking; the Java facade uses `CompletableFuture`.
-- Call `close()` when finished to allow resources to be released by GC.
+- Each client instance owns its OkHttp dispatcher + connection pool.
+- Suspend APIs are non-blocking; the Java facades use `CompletableFuture`.
+- Always call `close()` to shutdown OkHttp resources; this prevents Spring Boot from hanging on shutdown.
+
+### Spring Boot / long-running services
+
+Recommended: create one singleton client per module and close it at shutdown.
+
+- Kotlin (Spring)
+
+```kotlin
+@Configuration
+class FcmsClientsConfig {
+  @Bean(destroyMethod = "close")
+  fun fcmsFxHousesClient(config: FcmsConfig) = ly.neptune.nexus.fcms.fxhouses.FcmsFxHousesClients.create(config)
+}
+```
+
+- Java (Spring)
+
+```java
+@Bean(destroyMethod = "close")
+public FcmsFxHousesClientJava fcmsFx(FcmsConfig config) {
+  return FcmsFxHousesClientJava.create(config);
+}
+```
 
 ## Build, Test, Docs
 
@@ -328,9 +404,104 @@ repositories {
     mavenCentral()
 }
 dependencies {
-    implementation("io.github.tellesy:fcms-client:1.0.4")
+    implementation("io.github.tellesy:fcms-client:1.2.0")
 }
 ```
+
+## FX Houses (شركات ومكاتب الصرافة) — Business Flow & Accounting Notes
+
+### Overview
+
+We (the bank) integrate with the Central Bank (CBL). Every day, FX houses submit **USD purchase contracts**.
+
+Each contract includes:
+
+- `amount` (USD) e.g. `"50000.00"`
+- `cash_price` exchange rate for cash settlements
+- `bank_transfer_price` exchange rate for bank transfers
+
+### Daily FX Houses sync
+
+Use `GET /api/v1/fx-houses` to fetch the list of FX houses linked to the bank:
+
+- The list can **increase or decrease daily**.
+- The consuming app should **cache/persist** this list and update it daily.
+
+### Contract lifecycle
+
+1. List new contracts: `GET /api/v1/fx-houses/contracts`
+2. Decide to approve/decline based on compliance and available funds
+3. End-of-day: process the contract and finalize amounts
+
+### Important accounting rule (very important)
+
+When the bank processes a contract, it must reserve funds using the **higher** of the two exchange rates:
+
+```
+effective_rate = max(cash_price, bank_transfer_price)
+reserved_lyd = amount_usd * effective_rate
+```
+
+This is the amount to be held from the FX house account (LYD) when approving/processing.
+
+### End-of-day settlement
+
+At the end of the day, the contract is processed based on:
+
+- `sum_of_approved_cash_price`
+- `sum_of_approved_bank_transfer_price`
+
+These represent what was actually approved and settled under each channel.
+
+Any remaining reserved LYD (based on morning prices) should be returned to the FX house account.
+
+### Timestamp
+
+`ts` is the timestamp (Unix seconds) like the other APIs.
+
+### Mermaid flow diagram
+
+```mermaid
+flowchart TD
+  A[Start of day] --> B[Fetch FX houses list\nGET /api/v1/fx-houses]
+  B --> C[Fetch contracts\nGET /api/v1/fx-houses/contracts]
+  C --> D{Compliance + sufficient funds?}
+  D -- No --> E[Decline contract\nPATCH /contracts/{uuid}/decline\n(ts, reason)]
+  D -- Yes --> F[Compute effective rate\nmax(cash_price, bank_transfer_price)]
+  F --> G[Reserve LYD\nreserve = amount_usd * effective_rate]
+  G --> H[Approve contract\nPATCH /contracts/{uuid}/approve\n(ts)]
+  H --> I[During day: track approvals\ncash vs bank transfer]
+  I --> J[End of day]
+  J --> K[Process contract\nPATCH /contracts/{uuid}/process\n(ts, amounts)]
+  K --> L[Finalize sums\n(sum_of_approved_cash_price, sum_of_approved_bank_transfer_price)]
+  L --> M[Return remainder in LYD\nif any reserved LYD left]
+```
+
+### SDK usage (Kotlin)
+
+```kotlin
+val fx = ly.neptune.nexus.fcms.fxhouses.FcmsFxHousesClients.create(config)
+
+val fxHouses = fx.listFxHouses(page = 1)
+val contracts = fx.listContracts(page = 1)
+
+val contract = contracts.data.first()
+fx.approveContract(contract.uuid!!, ly.neptune.nexus.fcms.fxhouses.model.request.FxContractActionRequest(ts = System.currentTimeMillis() / 1000))
+
+// End of day
+fx.processContract(
+  contract.uuid!!,
+  ly.neptune.nexus.fcms.fxhouses.model.request.FxContractProcessRequest(
+    ts = System.currentTimeMillis() / 1000,
+    amountPurchasedCash = "100000",
+    amountPurchasedBankTransfer = "100000",
+  )
+)
+```
+
+## Credits
+
+Built with support from Neptune.ly and M. Tellesy.
 
 ## License
 

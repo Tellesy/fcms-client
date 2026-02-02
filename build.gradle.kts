@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.tellesy"
-version = "1.1.12"
+version = "1.2.0"
 
 java {
     toolchain {
@@ -139,7 +139,7 @@ mavenPublishing {
     }
     pom {
         name.set("FCMS Client")
-        description.set("Dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests). Kotlin & Java, no Spring.")
+        description.set("Dependency-light JVM SDK for FCMS APIs (Salaries, Accounts, Requests, Business Purchase Requests, Invoiced Purchase Requests, Miscs, Reports, FX Houses). Kotlin & Java, no Spring.")
         url.set("https://github.com/tellesy/fcms-client")
         licenses {
             license {

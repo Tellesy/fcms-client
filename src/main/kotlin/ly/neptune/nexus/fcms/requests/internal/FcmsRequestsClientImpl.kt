@@ -12,6 +12,7 @@
 )
 package ly.neptune.nexus.fcms.requests.internal
 
+import com.fasterxml.jackson.databind.JsonNode
 import kotlinx.coroutines.delay
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.core.RequestOptions
@@ -19,9 +20,18 @@ import ly.neptune.nexus.fcms.core.http.FcmsHttpException
 import ly.neptune.nexus.fcms.core.http.JsonSupport
 import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.requests.FcmsRequestsClient
+import ly.neptune.nexus.fcms.requests.model.DeletedPurchaseRequest
+import ly.neptune.nexus.fcms.requests.model.PurchaseRequest
+import ly.neptune.nexus.fcms.requests.model.PurchaseRequestActionRequest
+import ly.neptune.nexus.fcms.requests.model.PurchaseRequestDeclineRequest
+import ly.neptune.nexus.fcms.requests.model.PurchaseRequestProcessRequest
+import ly.neptune.nexus.fcms.requests.model.PurchaseRequestsListFilter
 import ly.neptune.nexus.fcms.requests.model.PurchaseRequestQueueItem
+import ly.neptune.nexus.fcms.requests.model.RefreshQueueResult
 import ly.neptune.nexus.fcms.salaries.model.Page
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.internal.closeQuietly
 import java.io.IOException
@@ -35,8 +45,10 @@ internal class FcmsRequestsClientImpl(
     private val config: FcmsConfig,
 ) : FcmsRequestsClient {
 
-    private val client = OkHttpProvider.create(config)
+    private val managed = OkHttpProvider.createManaged(config)
+    private val client = managed.client
     private val json = JsonSupport.mapper
+    private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
     override suspend fun listPendingRequests(
         page: Int?,
@@ -66,6 +78,194 @@ internal class FcmsRequestsClientImpl(
                 next = pr.next,
                 prev = pr.prev,
             )
+        }
+    }
+
+    override suspend fun listPurchaseRequests(
+        page: Int?,
+        filter: PurchaseRequestsListFilter?,
+        options: RequestOptions?
+    ): Page<PurchaseRequest> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/purchase-requests")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[state]", filter.state)
+                addParam("filter[type]", filter.type)
+                addParam("filter[reference]", filter.reference)
+                addParam("filter[iban]", filter.iban)
+                addParam("filter[created_on]", filter.createdOn)
+                addParam("filter[approved_on]", filter.approvedOn)
+                addParam("filter[processed_on]", filter.processedOn)
+            }
+        }
+
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), PurchaseRequest::class.java)
+            return Page(
+                data = pr.data,
+                total = pr.total,
+                perPage = pr.perPage,
+                currentPage = pr.currentPage,
+                next = pr.next,
+                prev = pr.prev,
+            )
+        }
+    }
+
+    override suspend fun showPurchaseRequest(uuid: String, options: RequestOptions?): PurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/purchase-requests/$uuid"
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), PurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun approvePurchaseRequest(
+        uuid: String,
+        request: PurchaseRequestActionRequest,
+        options: RequestOptions?
+    ): PurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/purchase-requests/$uuid/approve"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), PurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun declinePurchaseRequest(
+        uuid: String,
+        request: PurchaseRequestDeclineRequest,
+        options: RequestOptions?
+    ): PurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/purchase-requests/$uuid/decline"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), PurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun processPurchaseRequest(
+        uuid: String,
+        request: PurchaseRequestProcessRequest,
+        options: RequestOptions?
+    ): PurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/purchase-requests/$uuid/process"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), PurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun listDeletedPurchaseRequests(
+        page: Int?,
+        uuidFilter: String?,
+        ibanFilter: String?,
+        options: RequestOptions?
+    ): Page<DeletedPurchaseRequest> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/deleted-purchase-requests")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            addParam("filter[uuid]", uuidFilter)
+            addParam("filter[iban]", ibanFilter)
+        }
+
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), DeletedPurchaseRequest::class.java)
+            return Page(
+                data = pr.data,
+                total = pr.total,
+                perPage = pr.perPage,
+                currentPage = pr.currentPage,
+                next = pr.next,
+                prev = pr.prev,
+            )
+        }
+    }
+
+    override suspend fun refreshQueue(options: RequestOptions?): RefreshQueueResult {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/refresh-queue"
+        val req = Request.Builder()
+            .url(url)
+            .post("{}".toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            val root: JsonNode = json.readTree(rb.byteStream())
+            return RefreshQueueResult(raw = root)
         }
     }
 
@@ -190,6 +390,6 @@ internal class FcmsRequestsClientImpl(
     }
 
     override fun close() {
-        // Nothing specific
+        managed.close()
     }
 }

@@ -10,15 +10,15 @@
     "NestedBlockDepth",
     "MaxLineLength",
 )
-package ly.neptune.nexus.fcms.accounts.internal
 
-import com.fasterxml.jackson.databind.node.ObjectNode
+package ly.neptune.nexus.fcms.business.internal
+
 import kotlinx.coroutines.delay
-import ly.neptune.nexus.fcms.accounts.AccountsListFilter
-import ly.neptune.nexus.fcms.accounts.FcmsAccountsClient
-import ly.neptune.nexus.fcms.accounts.model.BankAccount
-import ly.neptune.nexus.fcms.accounts.model.request.MatchBankAccountRequest
-import ly.neptune.nexus.fcms.accounts.model.request.UpdateBankAccountRequest
+import ly.neptune.nexus.fcms.business.FcmsBusinessPurchaseRequestsClient
+import ly.neptune.nexus.fcms.business.model.BusinessPurchaseRequest
+import ly.neptune.nexus.fcms.business.model.request.BusinessPurchaseRequestCheckRequest
+import ly.neptune.nexus.fcms.business.model.request.BusinessPurchaseRequestCreateRequest
+import ly.neptune.nexus.fcms.business.model.request.BusinessPurchaseRequestProcessRequest
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.core.http.FcmsHttpException
@@ -26,10 +26,13 @@ import ly.neptune.nexus.fcms.core.http.JsonSupport
 import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.salaries.model.Page
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.internal.closeQuietly
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.time.Duration
@@ -37,24 +40,37 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ThreadLocalRandom
 
-internal class FcmsAccountsClientImpl(
+internal class FcmsBusinessPurchaseRequestsClientImpl(
     private val config: FcmsConfig,
-) : FcmsAccountsClient {
+) : FcmsBusinessPurchaseRequestsClient {
 
     private val managed = OkHttpProvider.createManaged(config)
     private val client = managed.client
     private val json = JsonSupport.mapper
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
-    override suspend fun listAccounts(
-        page: Int?,
-        filter: AccountsListFilter?,
-        options: RequestOptions?
-    ): Page<BankAccount> {
+    override suspend fun check(request: BusinessPurchaseRequestCheckRequest, options: RequestOptions?): BusinessPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/business-purchase-requests/check"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .post(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), BusinessPurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun list(page: Int?, filter: Map<String, String>, options: RequestOptions?): Page<BusinessPurchaseRequest> {
         val base = effectiveBaseUrl(options)
         val url = buildString {
             append(base)
-            append("/api/v1/bank-accounts")
+            append("/api/v1/business-purchase-requests")
             var first = true
             fun addParam(k: String, v: String?) {
                 if (v.isNullOrBlank()) return
@@ -63,16 +79,7 @@ internal class FcmsAccountsClientImpl(
                 append(k).append("=").append(v)
             }
             if (page != null) addParam("page", page.toString())
-            if (filter != null) {
-                addParam("filter[state]", filter.state)
-                addParam("filter[iban]", filter.iban)
-                addParam("filter[created_on]", filter.createdOn)
-                addParam("filter[approved_on]", filter.approvedOn)
-                addParam("filter[rejected_on]", filter.rejectedOn)
-                addParam("filter[unrejected_on]", filter.unrejectedOn)
-                addParam("filter[account_number]", filter.accountNumber)
-                addParam("filter[has_account_number]", filter.hasAccountNumber?.toString())
-            }
+            for ((k, v) in filter) addParam(k, v)
         }
         val req = Request.Builder()
             .url(url)
@@ -83,25 +90,71 @@ internal class FcmsAccountsClientImpl(
             .build()
         val body = executeWithRetries(req, isIdempotent = true)
         body.use { rb ->
-            val pr = JsonSupport.readListEnvelope(rb.byteStream(), BankAccount::class.java)
-            return Page(
-                data = pr.data,
-                total = pr.total,
-                perPage = pr.perPage,
-                currentPage = pr.currentPage,
-                next = pr.next,
-                prev = pr.prev,
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), BusinessPurchaseRequest::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
+        }
+    }
+
+    override suspend fun show(uuid: String, options: RequestOptions?): BusinessPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/business-purchase-requests/$uuid"
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), BusinessPurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun create(request: BusinessPurchaseRequestCreateRequest, options: RequestOptions?): BusinessPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/business-purchase-requests"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .post(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), BusinessPurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun close(uuid: String, attachments: List<File>, options: RequestOptions?): BusinessPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/business-purchase-requests/$uuid/close"
+        val form = MultipartBody.Builder().setType(MultipartBody.FORM)
+        for (file in attachments) {
+            form.addFormDataPart(
+                "attachments[]",
+                file.name,
+                file.asRequestBody("application/octet-stream".toMediaType())
             )
         }
+        val req = Request.Builder()
+            .url(url)
+            .post(form.build())
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), BusinessPurchaseRequest::class.java)
+        }
     }
 
-    override suspend fun matchAccount(
-        uuid: String,
-        request: MatchBankAccountRequest,
-        options: RequestOptions?
-    ): BankAccount {
+    override suspend fun process(uuid: String, request: BusinessPurchaseRequestProcessRequest, options: RequestOptions?): BusinessPurchaseRequest {
         val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/bank-accounts/$uuid/match"
+        val url = "$base/api/v1/business-purchase-requests/$uuid/process"
         val payload = json.writeValueAsString(request)
         val req = Request.Builder()
             .url(url)
@@ -112,69 +165,7 @@ internal class FcmsAccountsClientImpl(
             .build()
         val body = executeWithRetries(req, isIdempotent = false)
         body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), BankAccount::class.java)
-        }
-    }
-
-    override suspend fun rejectAccount(
-        uuid: String,
-        rejectReason: String,
-        rejectReasonNote: String?,
-        options: RequestOptions?
-    ): BankAccount {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/bank-accounts/$uuid/reject"
-        val node: ObjectNode = json.createObjectNode()
-        node.put("reject_reason", rejectReason)
-        if (!rejectReasonNote.isNullOrBlank()) node.put("reject_reason_note", rejectReasonNote)
-        val payload = json.writeValueAsString(node)
-        val req = Request.Builder()
-            .url(url)
-            .patch(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), BankAccount::class.java)
-        }
-    }
-
-    override suspend fun unrejectAccount(uuid: String, options: RequestOptions?): BankAccount {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/bank-accounts/$uuid/unreject"
-        val req = Request.Builder()
-            .url(url)
-            .patch("{}".toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), BankAccount::class.java)
-        }
-    }
-
-    override suspend fun updateAccount(
-        uuid: String,
-        request: UpdateBankAccountRequest,
-        options: RequestOptions?
-    ): BankAccount {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/bank-accounts/$uuid/update"
-        val payload = json.writeValueAsString(request)
-        val req = Request.Builder()
-            .url(url)
-            .patch(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), BankAccount::class.java)
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), BusinessPurchaseRequest::class.java)
         }
     }
 
@@ -202,12 +193,9 @@ internal class FcmsAccountsClientImpl(
         return candidate.trimEnd('/')
     }
 
-    private suspend fun executeWithRetries(
-        req: Request,
-        isIdempotent: Boolean
-    ): okhttp3.ResponseBody {
+    private suspend fun executeWithRetries(req: Request, isIdempotent: Boolean): okhttp3.ResponseBody {
         var attempt = 0
-        val enable = config.enableRetries && (isIdempotent)
+        val enable = config.enableRetries && isIdempotent
         val max = if (enable) config.maxRetries.coerceAtLeast(0) else 0
         while (true) {
             try {
@@ -219,7 +207,6 @@ internal class FcmsAccountsClientImpl(
                         throw IOException("Empty response body")
                     }
                 }
-                // Non-2xx
                 val ex = toHttpException(resp)
                 resp.closeQuietly()
                 if (enable && shouldRetry(ex.status)) {
@@ -244,17 +231,16 @@ internal class FcmsAccountsClientImpl(
     }
 
     private fun shouldRetry(status: Int): Boolean = when (status) {
-        HttpURLConnection.HTTP_CLIENT_TIMEOUT, // 408
-        429, // Too Many Requests
-        HttpURLConnection.HTTP_UNAVAILABLE, // 503
-        HttpURLConnection.HTTP_GATEWAY_TIMEOUT // 504
-        -> true
+        HttpURLConnection.HTTP_CLIENT_TIMEOUT,
+        429,
+        HttpURLConnection.HTTP_UNAVAILABLE,
+        HttpURLConnection.HTTP_GATEWAY_TIMEOUT -> true
         else -> false
     }
 
     private fun computeBackoff(attempt: Int, retryAfterSeconds: Long?): Long {
         val base = if (retryAfterSeconds != null) Duration.ofSeconds(retryAfterSeconds).toMillis() else 250L
-        val exp = (1L shl attempt).coerceAtMost(64) // exponential cap
+        val exp = (1L shl attempt).coerceAtMost(64)
         val maxDelay = (base * exp).coerceAtMost(config.maxRetryDelayMillis)
         val jitter = ThreadLocalRandom.current().nextLong(maxDelay / 2, maxDelay + 1)
         return jitter
@@ -265,7 +251,7 @@ internal class FcmsAccountsClientImpl(
         val headers = resp.headers.toMultimap().mapValues { it.value.joinToString(",") }
         val bodyStr = try {
             resp.body?.string()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
         var code: String? = null
@@ -273,10 +259,15 @@ internal class FcmsAccountsClientImpl(
         if (!bodyStr.isNullOrBlank()) {
             try {
                 val node = json.readTree(bodyStr)
-                message = node.get("message")?.asText() ?: message
-                code = node.get("code")?.asText() ?: code
+                val err = node.get("error")
+                if (err != null && err.isObject) {
+                    code = err.get("code")?.asText()
+                    message = err.get("message")?.asText()
+                }
+                if (code == null) code = node.get("code")?.asText()
+                if (message == null) message = node.get("message")?.asText()
             } catch (_: Exception) {
-                // ignore JSON parse errors for body
+                // ignore
             }
         }
         val retryAfterHeader = resp.header("Retry-After")
@@ -286,7 +277,6 @@ internal class FcmsAccountsClientImpl(
 
     private fun parseRetryAfter(value: String?): Long? {
         if (value.isNullOrBlank()) return null
-        // Either seconds or HTTP-date
         value.toLongOrNull()?.let { return it }
         return try {
             val dt = OffsetDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME)

@@ -13,6 +13,8 @@ import ly.neptune.nexus.fcms.salaries.model.response.BulkCompleteTransactionResp
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.future.future
 import java.util.concurrent.CompletableFuture
 
@@ -24,7 +26,7 @@ class FcmsSalariesClientJava private constructor(
     private val delegate: FcmsSalariesClient,
 ) : AutoCloseable {
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     fun listTransactions(
         page: Int?,
@@ -181,6 +183,7 @@ class FcmsSalariesClientJava private constructor(
         scope.future { delegate.verifyTransactionState(uuid, expectedState, options) }
 
     override fun close() {
+        scope.cancel("FcmsSalariesClientJava closed")
         delegate.close()
     }
 

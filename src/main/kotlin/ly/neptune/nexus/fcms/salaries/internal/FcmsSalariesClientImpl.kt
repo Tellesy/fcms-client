@@ -36,7 +36,8 @@ internal class FcmsSalariesClientImpl(
 ) : FcmsSalariesClient {
 
     private val log = LoggerFactory.getLogger(FcmsSalariesClientImpl::class.java)
-    private val client = OkHttpProvider.create(config)
+    private val managed = OkHttpProvider.createManaged(config)
+    private val client = managed.client
     private val json = JsonSupport.mapper
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
@@ -593,6 +594,6 @@ internal class FcmsSalariesClientImpl(
     }
 
     override fun close() {
-        // Nothing specific; OkHttp shares resources; dispatcher will shutdown when GC'd
+        managed.close()
     }
 }
