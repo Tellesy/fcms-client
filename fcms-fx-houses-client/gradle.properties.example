@@ -1,0 +1,13 @@
+# FCMS FX Houses Client (example only)
+org.gradle.jvmargs=-Xmx2g -Dfile.encoding=UTF-8
+
+# Maven Central / Sonatype credentials (DO NOT COMMIT REAL SECRETS)
+sonatypeUsername=YOUR_SONATYPE_USERNAME
+sonatypePassword=YOUR_SONATYPE_PASSWORD
+
+# Signing: use either file-based or in-memory key
+signingKeyFile=/absolute/path/to/private.key
+signingPassword=YOUR_SIGNING_PASSWORD
+
+# Alternatively, use env vars:
+# SIGNING_KEY (full ASCII-armored key), SIGNING_PASSWORD

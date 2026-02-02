@@ -1,0 +1,7 @@
+# Local secrets
+/gradle.properties
+
+# Build output
+/build/
+/.gradle/
+/.kotlin/
