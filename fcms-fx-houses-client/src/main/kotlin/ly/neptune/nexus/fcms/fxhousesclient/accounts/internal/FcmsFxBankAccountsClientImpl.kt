@@ -11,25 +11,18 @@
     "MaxLineLength",
 )
 
-package ly.neptune.nexus.fcms.fxhousesclient.contracts.internal
+package ly.neptune.nexus.fcms.fxhousesclient.accounts.internal
 
 import kotlinx.coroutines.delay
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.FcmsFxContractsClient
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.model.FxContract
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.model.FxContractActionRequest
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.model.FxContractCreateRequest
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.model.FxContractDeclineRequest
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.model.FxContractProcessRequest
-import ly.neptune.nexus.fcms.fxhousesclient.contracts.model.FxContractsListFilter
+import ly.neptune.nexus.fcms.fxhousesclient.accounts.FcmsFxBankAccountsClient
 import ly.neptune.nexus.fcms.fxhousesclient.core.FcmsFxConfig
 import ly.neptune.nexus.fcms.fxhousesclient.core.RequestOptions
 import ly.neptune.nexus.fcms.fxhousesclient.core.http.FcmsHttpException
 import ly.neptune.nexus.fcms.fxhousesclient.core.http.JsonSupport
 import ly.neptune.nexus.fcms.fxhousesclient.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.fxhousesclient.core.model.Page
-import okhttp3.MediaType.Companion.toMediaType
+import ly.neptune.nexus.fcms.fxhousesclient.requests.model.BankAccount
 import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.internal.closeQuietly
 import java.io.IOException
@@ -39,56 +32,20 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ThreadLocalRandom
 
-internal class FcmsFxContractsClientImpl(
+internal class FcmsFxBankAccountsClientImpl(
     private val config: FcmsFxConfig,
-) : FcmsFxContractsClient {
+) : FcmsFxBankAccountsClient {
 
     private val managed = OkHttpProvider.createManaged(config)
     private val client = managed.client
     private val json = JsonSupport.mapper
-    private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
-    override suspend fun create(request: FxContractCreateRequest, options: RequestOptions?): FxContract {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/contracts"
-        val payload = json.writeValueAsString(request)
-        val req = Request.Builder()
-            .url(url)
-            .post(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxContract::class.java)
-        }
-    }
-
-    override suspend fun list(
-        page: Int?,
-        filter: FxContractsListFilter?,
-        options: RequestOptions?
-    ): Page<FxContract> {
+    override suspend fun listBankAccounts(page: Int?, options: RequestOptions?): Page<BankAccount> {
         val base = effectiveBaseUrl(options)
         val url = buildString {
             append(base)
-            append("/api/v1/contracts")
-            var first = true
-            fun addParam(k: String, v: String?) {
-                if (v.isNullOrBlank()) return
-                append(if (first) "?" else "&")
-                first = false
-                append(k).append("=").append(v)
-            }
-            if (page != null) addParam("page", page.toString())
-            if (filter != null) {
-                addParam("filter[date_from]", filter.dateFrom)
-                addParam("filter[date_to]", filter.dateTo)
-                addParam("filter[state]", filter.state)
-                addParam("filter[cbl_key]", filter.cblKey)
-            }
+            append("/api/v1/bank-accounts")
+            if (page != null) append("?page=").append(page)
         }
         val req = Request.Builder()
             .url(url)
@@ -97,74 +54,10 @@ internal class FcmsFxContractsClientImpl(
             .applyAuth(options)
             .applyReadOverride(options)
             .build()
-
         val body = executeWithRetries(req, isIdempotent = true)
         body.use { rb ->
-            val pr = JsonSupport.readListEnvelope(rb.byteStream(), FxContract::class.java)
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), BankAccount::class.java)
             return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
-        }
-    }
-
-    override suspend fun approve(
-        uuid: String,
-        request: FxContractActionRequest,
-        options: RequestOptions?
-    ): FxContract {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/contracts/$uuid/approve"
-        val payload = json.writeValueAsString(request)
-        val req = Request.Builder()
-            .url(url)
-            .patch(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxContract::class.java)
-        }
-    }
-
-    override suspend fun process(
-        uuid: String,
-        request: FxContractProcessRequest,
-        options: RequestOptions?
-    ): FxContract {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/contracts/$uuid/process"
-        val payload = json.writeValueAsString(request)
-        val req = Request.Builder()
-            .url(url)
-            .patch(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxContract::class.java)
-        }
-    }
-
-    override suspend fun decline(
-        uuid: String,
-        request: FxContractDeclineRequest,
-        options: RequestOptions?
-    ): FxContract {
-        val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/contracts/$uuid/decline"
-        val payload = json.writeValueAsString(request)
-        val req = Request.Builder()
-            .url(url)
-            .patch(payload.toRequestBody(jsonMedia))
-            .header("User-Agent", config.userAgent)
-            .applyAuth(options)
-            .applyReadOverride(options)
-            .build()
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxContract::class.java)
         }
     }
 

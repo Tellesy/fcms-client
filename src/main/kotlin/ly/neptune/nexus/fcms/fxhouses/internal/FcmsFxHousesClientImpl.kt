@@ -14,6 +14,7 @@
 package ly.neptune.nexus.fcms.fxhouses.internal
 
 import kotlinx.coroutines.delay
+import ly.neptune.nexus.fcms.accounts.model.BankAccount
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.core.http.FcmsHttpException
@@ -21,7 +22,10 @@ import ly.neptune.nexus.fcms.core.http.JsonSupport
 import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.fxhouses.FcmsFxHousesClient
 import ly.neptune.nexus.fcms.fxhouses.model.FxContract
+import ly.neptune.nexus.fcms.fxhouses.model.FxContractsListFilter
 import ly.neptune.nexus.fcms.fxhouses.model.FxHouse
+import ly.neptune.nexus.fcms.fxhouses.model.FxPurchaseRequest
+import ly.neptune.nexus.fcms.fxhouses.model.FxPurchaseRequestsListFilter
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractActionRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractDeclineRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractProcessRequest
@@ -47,6 +51,27 @@ internal class FcmsFxHousesClientImpl(
     private val json = JsonSupport.mapper
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
+    override suspend fun listBankAccounts(page: Int?, options: RequestOptions?): Page<BankAccount> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/bank-accounts")
+            if (page != null) append("?page=").append(page)
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), BankAccount::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
+        }
+    }
+
     override suspend fun listFxHouses(page: Int?, options: RequestOptions?): Page<FxHouse> {
         val base = effectiveBaseUrl(options)
         val url = buildString {
@@ -68,12 +93,29 @@ internal class FcmsFxHousesClientImpl(
         }
     }
 
-    override suspend fun listContracts(page: Int?, options: RequestOptions?): Page<FxContract> {
+    override suspend fun listContracts(
+        page: Int?,
+        filter: FxContractsListFilter?,
+        options: RequestOptions?
+    ): Page<FxContract> {
         val base = effectiveBaseUrl(options)
         val url = buildString {
             append(base)
             append("/api/v1/fx-houses/contracts")
-            if (page != null) append("?page=").append(page)
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[date_from]", filter.dateFrom)
+                addParam("filter[date_to]", filter.dateTo)
+                addParam("filter[state]", filter.state)
+                addParam("filter[cbl_key]", filter.cblKey)
+            }
         }
         val req = Request.Builder()
             .url(url)
@@ -85,6 +127,44 @@ internal class FcmsFxHousesClientImpl(
         val body = executeWithRetries(req, isIdempotent = true)
         body.use { rb ->
             val pr = JsonSupport.readListEnvelope(rb.byteStream(), FxContract::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
+        }
+    }
+
+    override suspend fun listFxPurchaseRequests(
+        page: Int?,
+        filter: FxPurchaseRequestsListFilter?,
+        options: RequestOptions?
+    ): Page<FxPurchaseRequest> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/fx-houses/purchase-requests")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[approved_on]", filter.approvedOn)
+                addParam("filter[state]", filter.state)
+                addParam("filter[type]", filter.type)
+                addParam("filter[reference]", filter.reference)
+            }
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), FxPurchaseRequest::class.java)
             return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
         }
     }

@@ -4,14 +4,14 @@ A dedicated JVM SDK for FX houses (companies) using FCMS APIs. Uses a **separate
 
 - Group: `io.github.tellesy`
 - Artifact: `fcms-fx-houses-client`
-- Version: `1.0.0`
+- Version: `1.1.0`
 - JVM: Java 21+
 
 ## Add Dependency
 
 ```kotlin
 repositories { mavenCentral() }
-dependencies { implementation("io.github.tellesy:fcms-fx-houses-client:1.0.0") }
+dependencies { implementation("io.github.tellesy:fcms-fx-houses-client:1.1.0") }
 ```
 
 ## Quick Start (Kotlin)

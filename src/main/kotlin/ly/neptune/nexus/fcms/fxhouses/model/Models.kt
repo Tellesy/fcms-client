@@ -3,6 +3,7 @@ package ly.neptune.nexus.fcms.fxhouses.model
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
+import com.fasterxml.jackson.databind.JsonNode
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class FxHouse @JsonCreator constructor(
@@ -32,4 +33,36 @@ data class FxContract @JsonCreator constructor(
     @JsonProperty("bank_account") val bankAccount: FxHouseBankAccount?,
     @JsonProperty("created_at") val createdAt: String?,
     @JsonProperty("updated_at") val updatedAt: String?,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CodeName @JsonCreator constructor(
+    @JsonProperty("code") val code: String?,
+    @JsonProperty("name") val name: String?,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxPurchaseRequest @JsonCreator constructor(
+    @JsonProperty("uuid") val uuid: String?,
+    @JsonProperty("reference") val reference: String?,
+    @JsonProperty("amount_requested") val amountRequested: String?,
+    @JsonProperty("type") val type: CodeName?,
+    @JsonProperty("state") val state: CodeName?,
+    @JsonProperty("deposit_type") val depositType: CodeName?,
+    @JsonProperty("passport_attached") val passportAttached: Boolean?,
+    @JsonProperty("raw") val raw: JsonNode? = null,
+)
+
+data class FxContractsListFilter(
+    val dateFrom: String? = null,
+    val dateTo: String? = null,
+    val state: String? = null,
+    val cblKey: String? = null,
+)
+
+data class FxPurchaseRequestsListFilter(
+    val approvedOn: String? = null,
+    val state: String? = null,
+    val type: String? = null,
+    val reference: String? = null,
 )

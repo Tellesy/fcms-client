@@ -24,3 +24,29 @@ data class FxContractCreateRequest @JsonCreator constructor(
     @JsonProperty("bank_transfer_price") val bankTransferPrice: String,
     @JsonProperty("amount") val amount: String,
 )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxContractActionRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxContractProcessRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+    @JsonProperty("amount_purchased_cash") val amountPurchasedCash: String? = null,
+    @JsonProperty("amount_purchased_bank_transfer") val amountPurchasedBankTransfer: String? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxContractDeclineRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+    @JsonProperty("reject_reason") val rejectReason: String? = null,
+    @JsonProperty("reject_reason_note") val rejectReasonNote: String? = null,
+)
+
+data class FxContractsListFilter(
+    val dateFrom: String? = null,
+    val dateTo: String? = null,
+    val state: String? = null,
+    val cblKey: String? = null,
+)
