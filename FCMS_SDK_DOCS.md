@@ -1,17 +1,27 @@
-# FCMS Clients Documentation (v1.3.3 & v1.1.3)
+# FCMS Clients Documentation (v1.3.6 & v1.1.4)
 
-This document provides a comprehensive guide for using both the **Bank-Side SDK (`fcms-client` v1.3.3)** and the **FX Houses SDK (`fcms-fx-houses-client` v1.1.3)**. 
+This document provides a comprehensive guide for using both the **Bank-Side SDK (`fcms-client` v1.3.6)** and the **FX Houses SDK (`fcms-fx-houses-client` v1.1.4)**. 
 
 ---
 
 ## 1. Overview & What's New
 
-### 🏦 Bank-Side SDK (`fcms-client` v1.3.3)
+### 🏦 Bank-Side SDK (`fcms-client` v1.3.6)
 The bank SDK is used by the central administration (e.g., the bank) to manage users, salaries, business/invoiced purchase requests, and to oversee FX houses.
 
+**What's New in v1.3.6:**
+- **Miscs:** Updated `listExchangeRates` in `FcmsMiscsClient` to return a paginated `Page<ExchangeRate>` instead of a simple list, and added support for filtering by date (`filter[date]`).
+
+**What's New in v1.3.5:**
+- **Reports:** Added `purchaseRequestsStatesSummary` endpoint in the `FcmsReportsClient` for the bank to view aggregated counts and totals of purchase requests by state.
+
+**What's New in v1.3.4:**
+- **Added `company` field:** You can now see the FX House details associated with a purchase request using the `company` field on `FxPurchaseRequest` models.
+- **Dynamic Property Mapping:** The `bankAccount` property on `FxPurchaseRequest` now supports parsing both `bank_account` and `bankAccount` keys in JSON to prevent `null` responses caused by different API casings.
+
 **What's New in v1.3.3:**
-- **FJx proCerr _counJSONcs ophsuyemapp modfrhi `b ekAcceanusttm field_ato `FxPuacchssqpodels. rmdels.Thi ensee me daisaprcorrectl.
--**Fix:** Aded mssing `contract` ild o`FxurheRequet` models
+- **Fix:** Corrected JSON property mapping from `bankAccount` to `bank_account` across purchase request models. This ensures the bank account and customer details are parsed correctly.
+- **Fix:** Added missing `contract` field to `FxPurchaseRequest` models.
 
 **What's New in v1.3.0 (Previous):**
 - Added `listFxPurchaseRequests` endpoint in the `FcmsFxHousesClient` for the bank to list and filter purchase requests associated with FX Houses.
@@ -19,8 +29,11 @@ The bank SDK is used by the central administration (e.g., the bank) to manage us
 - Centralized token management via `FcmsConfig`.
 - Exposed all endpoints in `FcmsFxHousesClientJava` for easy Java interop.
 
-### 🏢 FX Houses SDK (`fcms-fx-houses-client` v1.1.3)
+### 🏢 FX Houses SDK (`fcms-fx-houses-client` v1.1.4)
 A **brand new, dedicated SDK** for FX houses (exchange companies). This SDK uses a separate authentication token bound directly to the FX house.
+
+**What's New in v1.1.4:**
+- Inherited bug fixes mapping `bank_account` and parsing.
 
 **What's New in v1.1.3:**
 - **Fix:** Corrected JSON property mapping from `bankAccount` to `bank_account` on both `PurchaseRequestQueueItem` and `PurchaseRequest` models.

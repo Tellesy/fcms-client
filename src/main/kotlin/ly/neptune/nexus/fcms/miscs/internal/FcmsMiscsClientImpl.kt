@@ -24,6 +24,7 @@ import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.miscs.FcmsMiscsClient
 import ly.neptune.nexus.fcms.miscs.model.BankBranch
 import ly.neptune.nexus.fcms.miscs.model.CodeName
+import ly.neptune.nexus.fcms.miscs.model.ExchangeRate
 import ly.neptune.nexus.fcms.salaries.model.Page
 import okhttp3.Request
 import okhttp3.Response
