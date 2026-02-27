@@ -11,6 +11,7 @@ import ly.neptune.nexus.fcms.miscs.internal.FcmsMiscsClientImpl
 import ly.neptune.nexus.fcms.miscs.model.BankBranch
 import ly.neptune.nexus.fcms.miscs.model.CodeName
 import ly.neptune.nexus.fcms.miscs.model.ExchangeRate
+import ly.neptune.nexus.fcms.salaries.model.Page
 import java.util.concurrent.CompletableFuture
 
 class FcmsMiscsClientJava private constructor(
@@ -40,8 +41,8 @@ class FcmsMiscsClientJava private constructor(
     fun listCurrenciesLegacy(options: RequestOptions?): CompletableFuture<List<CodeName>> =
         scope.future { delegate.listCurrenciesLegacy(options) }
 
-    fun listExchangeRates(filterDate: String?, options: RequestOptions?): CompletableFuture<List<ExchangeRate>> =
-        scope.future { delegate.listExchangeRates(filterDate, options) }
+    fun listExchangeRates(page: Int?, filterDate: String?, options: RequestOptions?): CompletableFuture<Page<ExchangeRate>> =
+        scope.future { delegate.listExchangeRates(page, filterDate, options) }
 
     fun listInvoicedPurchaseRequestStates(options: RequestOptions?): CompletableFuture<List<CodeName>> =
         scope.future { delegate.listInvoicedPurchaseRequestStates(options) }

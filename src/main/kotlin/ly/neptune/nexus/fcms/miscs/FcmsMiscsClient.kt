@@ -4,6 +4,7 @@ import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.miscs.model.BankBranch
 import ly.neptune.nexus.fcms.miscs.model.CodeName
 import ly.neptune.nexus.fcms.miscs.model.ExchangeRate
+import ly.neptune.nexus.fcms.salaries.model.Page
 
 interface FcmsMiscsClient : AutoCloseable {
     suspend fun listBankAccountRejectionReasons(options: RequestOptions? = null): List<CodeName>
@@ -20,7 +21,7 @@ interface FcmsMiscsClient : AutoCloseable {
 
     suspend fun listCurrenciesLegacy(options: RequestOptions? = null): List<CodeName>
 
-    suspend fun listExchangeRates(filterDate: String? = null, options: RequestOptions? = null): List<ExchangeRate>
+    suspend fun listExchangeRates(page: Int? = null, filterDate: String? = null, options: RequestOptions? = null): Page<ExchangeRate>
 
     suspend fun listInvoicedPurchaseRequestStates(options: RequestOptions? = null): List<CodeName>
 

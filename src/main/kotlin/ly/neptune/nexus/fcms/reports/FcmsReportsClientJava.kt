@@ -8,7 +8,7 @@ import kotlinx.coroutines.future.future
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.reports.internal.FcmsReportsClientImpl
-import ly.neptune.nexus.fcms.reports.model.PurchaseRequestsStatesReportRow
+import ly.neptune.nexus.fcms.reports.model.PurchaseRequestsStatesSummary
 import java.util.concurrent.CompletableFuture
 
 class FcmsReportsClientJava private constructor(
@@ -21,7 +21,7 @@ class FcmsReportsClientJava private constructor(
         approvedOn: String?,
         type: String?,
         options: RequestOptions?,
-    ): CompletableFuture<List<PurchaseRequestsStatesReportRow>> =
+    ): CompletableFuture<PurchaseRequestsStatesSummary> =
         scope.future { delegate.purchaseRequestsStatesSummary(approvedOn, type, options) }
 
     override fun close() {

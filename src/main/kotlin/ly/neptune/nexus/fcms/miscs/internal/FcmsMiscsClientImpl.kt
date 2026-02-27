@@ -24,7 +24,7 @@ import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.miscs.FcmsMiscsClient
 import ly.neptune.nexus.fcms.miscs.model.BankBranch
 import ly.neptune.nexus.fcms.miscs.model.CodeName
-import ly.neptune.nexus.fcms.miscs.model.ExchangeRate
+import ly.neptune.nexus.fcms.salaries.model.Page
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.internal.closeQuietly
@@ -64,12 +64,20 @@ internal class FcmsMiscsClientImpl(
     override suspend fun listCurrenciesLegacy(options: RequestOptions?): List<CodeName> =
         getList("/api/v1/miscs/countries", CodeName::class.java, options)
 
-    override suspend fun listExchangeRates(filterDate: String?, options: RequestOptions?): List<ExchangeRate> {
+    override suspend fun listExchangeRates(page: Int?, filterDate: String?, options: RequestOptions?): Page<ExchangeRate> {
         val base = effectiveBaseUrl(options)
         val url = buildString {
             append(base)
             append("/api/v1/miscs/exchange-rates")
-            if (!filterDate.isNullOrBlank()) append("?filter[date]=").append(filterDate)
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (!filterDate.isNullOrBlank()) addParam("filter[date]", filterDate)
         }
 
         val req = Request.Builder()
@@ -82,16 +90,8 @@ internal class FcmsMiscsClientImpl(
 
         val body = executeWithRetries(req, isIdempotent = true)
         body.use { rb ->
-            val root: JsonNode = json.readTree(rb.byteStream())
-            val data = root.get("data")
-            if (data == null || !data.isArray) return emptyList()
-            return data.map { n ->
-                val baseC = n.get("base")?.asText()
-                val quoteC = n.get("quote")?.asText()
-                val rate = n.get("rate")?.asText()
-                val date = n.get("date")?.asText()
-                ExchangeRate(base = baseC, quote = quoteC, rate = rate, date = date, raw = n)
-            }
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), ExchangeRate::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
         }
     }
 

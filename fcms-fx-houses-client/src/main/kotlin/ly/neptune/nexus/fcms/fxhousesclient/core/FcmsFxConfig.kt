@@ -13,7 +13,7 @@ data class FcmsFxConfig @JvmOverloads constructor(
     val writeTimeoutMillis: Long = 30_000,
     val maxRequests: Int = 64,
     val maxRequestsPerHost: Int = 32,
-    val userAgent: String = "fcms-fx-houses-client/1.1.0",
+    val userAgent: String = "fcms-fx-houses-client/1.1.4",
     val enableRetries: Boolean = false,
     val maxRetries: Int = 3,
     val maxRetryDelayMillis: Long = 10_000,

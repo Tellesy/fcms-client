@@ -15,7 +15,7 @@ data class PurchaseRequestQueueItem @JsonCreator constructor(
     @JsonProperty("processed_type") val processedType: String?,
     @JsonProperty("created_at") val createdAt: String?,
     @JsonProperty("timestamp") val timestamp: Long?,
-    @JsonProperty("bankAccount") val bankAccount: QueueBankAccount?,
+    @JsonProperty("bank_account") val bankAccount: QueueBankAccount?,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -61,7 +61,7 @@ data class PurchaseRequest @JsonCreator constructor(
     @JsonProperty("timestamp") val timestamp: Long?,
     @JsonProperty("created_at") val createdAt: String?,
     @JsonProperty("updated_at") val updatedAt: String?,
-    @JsonProperty("bankAccount") val bankAccount: QueueBankAccount?,
+    @JsonProperty("bank_account") val bankAccount: QueueBankAccount?,
     @JsonProperty("raw") val raw: JsonNode? = null,
 )
 

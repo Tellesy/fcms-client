@@ -20,7 +20,7 @@ import ly.neptune.nexus.fcms.core.http.FcmsHttpException
 import ly.neptune.nexus.fcms.core.http.JsonSupport
 import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.reports.FcmsReportsClient
-import ly.neptune.nexus.fcms.reports.model.PurchaseRequestsStatesReportRow
+import ly.neptune.nexus.fcms.reports.model.PurchaseRequestsStatesSummary
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.internal.closeQuietly
@@ -43,7 +43,7 @@ internal class FcmsReportsClientImpl(
         approvedOn: String?,
         type: String?,
         options: RequestOptions?
-    ): List<PurchaseRequestsStatesReportRow> {
+    ): PurchaseRequestsStatesSummary {
         val base = effectiveBaseUrl(options)
         val url = buildString {
             append(base)
@@ -69,8 +69,7 @@ internal class FcmsReportsClientImpl(
 
         val body = executeWithRetries(req, isIdempotent = true)
         body.use { rb ->
-            val pr = JsonSupport.readListEnvelope(rb.byteStream(), PurchaseRequestsStatesReportRow::class.java)
-            return pr.data
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), PurchaseRequestsStatesSummary::class.java)
         }
     }
 

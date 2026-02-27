@@ -25,7 +25,7 @@ data class FcmsConfig @JvmOverloads constructor(
     val writeTimeoutMillis: Long = 30_000,
     val maxRequests: Int = 64,
     val maxRequestsPerHost: Int = 32,
-    val userAgent: String = "fcms-client/1.3.0",
+    val userAgent: String = "fcms-client/1.3.5",
     val enableRetries: Boolean = false,
     val maxRetries: Int = 3,
     val maxRetryDelayMillis: Long = 10_000,

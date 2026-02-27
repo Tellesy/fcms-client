@@ -1,9 +1,11 @@
 package ly.neptune.nexus.fcms.fxhouses.model
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonCreator
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.databind.JsonNode
+import ly.neptune.nexus.fcms.accounts.model.User
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 data class FxHouse @JsonCreator constructor(
@@ -48,6 +50,9 @@ data class FxPurchaseRequest @JsonCreator constructor(
     @JsonProperty("amount_requested") val amountRequested: String?,
     @JsonProperty("type") val type: CodeName?,
     @JsonProperty("state") val state: CodeName?,
+    @JsonProperty("contract") val contract: FxContract?,
+    @JsonProperty("company") val company: FxHouse?,
+    @JsonAlias("bankAccount", "bank_account") val bankAccount: ly.neptune.nexus.fcms.accounts.model.BankAccount?,
     @JsonProperty("deposit_type") val depositType: CodeName?,
     @JsonProperty("passport_attached") val passportAttached: Boolean?,
     @JsonProperty("raw") val raw: JsonNode? = null,
