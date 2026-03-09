@@ -28,7 +28,12 @@ internal object JsonSupport {
             val root: JsonNode = mapper.readTree(it)
             val dataNode = root.get("data")
                 ?: error("Missing 'data' field in list response")
-            val items: List<T> = dataNode.map { node -> mapper.readValue(node.traverse(), itemClazz) }
+
+            val items: List<T> = if (dataNode.isArray && dataNode.isEmpty) {
+                emptyList()
+            } else {
+                dataNode.map { node -> mapper.readValue(node.traverse(), itemClazz) }
+            }
 
             var total: Long? = null
             var perPage: Int? = null
