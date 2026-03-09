@@ -4,6 +4,7 @@ package ly.neptune.nexus.fcms.salaries.internal
 import com.fasterxml.jackson.databind.node.ObjectNode
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.salaries.FcmsSalariesClient
+import ly.neptune.nexus.fcms.salaries.HealthCheckResult
 import ly.neptune.nexus.fcms.salaries.SalariesListFilter
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.core.http.FcmsHttpException
@@ -12,8 +13,11 @@ import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.salaries.model.Page
 import ly.neptune.nexus.fcms.salaries.model.RejectionReason
 import ly.neptune.nexus.fcms.salaries.model.Transaction
+import ly.neptune.nexus.fcms.salaries.model.request.BulkCompleteTransactionRequest
 import ly.neptune.nexus.fcms.salaries.model.request.CompleteTransactionRequest
+import ly.neptune.nexus.fcms.salaries.model.response.BulkCompleteTransactionResponse
 import kotlinx.coroutines.delay
+import org.slf4j.LoggerFactory
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -31,7 +35,9 @@ internal class FcmsSalariesClientImpl(
     private val config: FcmsConfig,
 ) : FcmsSalariesClient {
 
-    private val client = OkHttpProvider.create(config)
+    private val log = LoggerFactory.getLogger(FcmsSalariesClientImpl::class.java)
+    private val managed = OkHttpProvider.createManaged(config)
+    private val client = managed.client
     private val json = JsonSupport.mapper
     private val jsonMedia = "application/json; charset=utf-8".toMediaType()
 
@@ -87,8 +93,8 @@ internal class FcmsSalariesClientImpl(
             if (page != null) addParam("page", page.toString())
             if (filter != null) {
                 addParam("filter[state]", filter.state)
-                addParam("filter[year]", filter.year?.toString())
-                addParam("filter[month]", filter.month?.toString())
+                addParam("filter[salary_year]", filter.year?.toString())
+                addParam("filter[salary_month]", filter.month?.toString())
             }
             addParam("limit", "500")
         }
@@ -177,19 +183,59 @@ internal class FcmsSalariesClientImpl(
     ): Transaction {
         val base = effectiveBaseUrl(options)
         val url = "$base/api/v1/mof/transactions/$uuid/complete"
-        println("DEBUG FCMS: completeTransaction called with uuid=$uuid, URL=$url") // DEBUG
         val payload = json.writeValueAsString(request)
+        val requestBody = payload.toRequestBody(jsonMedia)
         val req = Request.Builder()
             .url(url)
-            .post(payload.toRequestBody(jsonMedia))
+            .post(requestBody)
             .header("User-Agent", config.userAgent)
+            .header("Content-Type", "application/json")
             .applyAuth(options)
             .applyReadOverride(options)
             .build()
-        println("DEBUG FCMS: Request URL = ${req.url}") // DEBUG
-        val body = executeWithRetries(req, isIdempotent = false)
-        body.use { rb ->
-            return JsonSupport.readSingleEnvelope(rb.byteStream(), Transaction::class.java)
+        // Log full request details for debugging
+        val authHeader = req.header("Authorization")
+        val maskedAuth = if (authHeader != null && authHeader.length > 15) {
+            authHeader.substring(0, 15) + "..." + authHeader.takeLast(4)
+        } else authHeader
+        val contentType = req.header("Content-Type") ?: requestBody.contentType()?.toString()
+        log.info("FCMS completeTransaction REQUEST: method={}, url={}, contentType={}, auth={}, body={}", 
+            req.method, req.url, contentType, maskedAuth, payload)
+        
+        try {
+            val body = executeWithRetries(req, isIdempotent = false)
+            body.use { rb ->
+                return JsonSupport.readSingleEnvelope(rb.byteStream(), Transaction::class.java)
+            }
+        } catch (ex: FcmsHttpException) {
+            // FCMS028 = "already completed" - but FCMS sometimes lies!
+            // Verify actual state before propagating error
+            if (ex.status == 403 && ex.code == "FCMS028") {
+                log.warn("FCMS028 received for uuid={}, verifying actual state...", uuid)
+                try {
+                    val tx = showTransaction(uuid, options)
+                    if (tx.state == "completed") {
+                        log.info("FCMS028 verified: uuid={} is actually completed", uuid)
+                        return tx
+                    } else {
+                        log.error("FCMS028 LIE DETECTED: uuid={} state is '{}' not 'completed'! " +
+                            "FCMS returned false 'already completed' error", uuid, tx.state)
+                        // Re-throw with additional context
+                        throw FcmsHttpException(
+                            status = ex.status,
+                            code = ex.code,
+                            message = "FCMS028 but state=${tx.state} (FCMS bug - transaction NOT completed)",
+                            body = ex.body,
+                            headers = ex.headers,
+                            retryAfterSeconds = ex.retryAfterSeconds
+                        )
+                    }
+                } catch (verifyEx: Exception) {
+                    log.error("Failed to verify transaction state after FCMS028: {}", verifyEx.message)
+                    throw ex // Re-throw original
+                }
+            }
+            throw ex
         }
     }
 
@@ -203,6 +249,7 @@ internal class FcmsSalariesClientImpl(
         val node: ObjectNode = json.createObjectNode()
         node.put("rejection_reason", rejectionReason)
         val payload = json.writeValueAsString(node)
+        log.debug("FCMS rejectTransaction: uuid={}, reason={}", uuid, rejectionReason)
         val req = Request.Builder()
             .url(url)
             .post(payload.toRequestBody(jsonMedia))
@@ -230,6 +277,171 @@ internal class FcmsSalariesClientImpl(
         body.use { rb ->
             val pr = JsonSupport.readListEnvelope(rb.byteStream(), RejectionReason::class.java)
             return pr.data
+        }
+    }
+
+    override suspend fun healthCheck(options: RequestOptions?): HealthCheckResult {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/misc/mof/rejection-reasons"
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .build()
+        
+        val startTime = System.currentTimeMillis()
+        return try {
+            val call = client.newCall(req)
+            val resp = call.execute()
+            val latency = System.currentTimeMillis() - startTime
+            
+            resp.use { response ->
+                when {
+                    response.isSuccessful -> {
+                        log.info("FCMS Health Check: OK ({} ms)", latency)
+                        HealthCheckResult.success(latency)
+                    }
+                    response.code in 401..403 -> {
+                        val msg = tryExtractErrorMessage(response)
+                        log.warn("FCMS Health Check: Authentication failed - {} ({} ms)", response.code, latency)
+                        HealthCheckResult.authenticationError(latency, response.code, msg)
+                    }
+                    else -> {
+                        val msg = tryExtractErrorMessage(response)
+                        log.warn("FCMS Health Check: Server error - {} ({} ms)", response.code, latency)
+                        HealthCheckResult.serverError(latency, response.code, msg)
+                    }
+                }
+            }
+        } catch (e: IOException) {
+            val latency = System.currentTimeMillis() - startTime
+            log.error("FCMS Health Check: Connection failed - {} ({} ms)", e.message, latency)
+            HealthCheckResult.connectionError(latency, e.message ?: "Connection failed")
+        }
+    }
+
+    private fun tryExtractErrorMessage(response: Response): String? {
+        return try {
+            val bodyStr = response.body?.string()
+            if (!bodyStr.isNullOrBlank()) {
+                val node = json.readTree(bodyStr)
+                // FCMS returns errors in nested structure: {"error":{"code":"...","message":"..."}}
+                val errorNode = node.get("error")
+                if (errorNode != null && errorNode.isObject) {
+                    errorNode.get("message")?.asText()
+                } else {
+                    node.get("message")?.asText()
+                }
+            } else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    override suspend fun listArchivedTransactions(page: Int?, options: RequestOptions?): Page<Transaction> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/mof/archived-transactions")
+            if (page != null) {
+                append("?page=").append(page)
+                append("&limit=500")
+            } else {
+                append("?limit=500")
+            }
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), Transaction::class.java)
+            return Page(
+                data = pr.data,
+                total = pr.total,
+                perPage = pr.perPage,
+                currentPage = pr.currentPage,
+                next = pr.next,
+                prev = pr.prev,
+            )
+        }
+    }
+
+    override suspend fun listArchivedTransactionsFiltered(
+        page: Int?,
+        filter: SalariesListFilter?,
+        options: RequestOptions?
+    ): Page<Transaction> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/mof/archived-transactions")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[state]", filter.state)
+                addParam("filter[salary_year]", filter.year?.toString())
+                addParam("filter[salary_month]", filter.month?.toString())
+            }
+            addParam("limit", "500")
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), Transaction::class.java)
+            return Page(
+                data = pr.data,
+                total = pr.total,
+                perPage = pr.perPage,
+                currentPage = pr.currentPage,
+                next = pr.next,
+                prev = pr.prev,
+            )
+        }
+    }
+
+    override suspend fun bulkCompleteTransactions(
+        request: BulkCompleteTransactionRequest,
+        options: RequestOptions?
+    ): BulkCompleteTransactionResponse {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/mof/transactions/bulk-complete"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .post(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        // Log full request details for debugging
+        val authHeader = req.header("Authorization")
+        val maskedAuth = if (authHeader != null && authHeader.length > 15) {
+            authHeader.substring(0, 15) + "..." + authHeader.takeLast(4)
+        } else authHeader
+        log.info("FCMS bulkCompleteTransactions REQUEST: method={}, url={}, auth={}, count={}", 
+            req.method, req.url, maskedAuth, request.transactions.size)
+        log.debug("FCMS bulkCompleteTransactions payload: {}", payload)
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), BulkCompleteTransactionResponse::class.java)
         }
     }
 
@@ -261,16 +473,23 @@ internal class FcmsSalariesClientImpl(
         req: Request,
         isIdempotent: Boolean
     ): okhttp3.ResponseBody {
-        println("DEBUG FCMS executeWithRetries: About to call URL: ${req.url}") // DEBUG
+        log.debug("FCMS Request: {} {}", req.method, req.url)
         var attempt = 0
-        val enable = config.enableRetries && (isIdempotent)
-        val max = if (enable) config.maxRetries.coerceAtLeast(0) else 0
+        // For HTTP status retries, only retry idempotent requests
+        val enableHttpRetry = config.enableRetries && isIdempotent
+        // For IO errors (connection reset, timeout), always retry if retries enabled
+        // because the request may not have reached the server
+        val enableIoRetry = config.enableRetries
+        val max = if (config.enableRetries) config.maxRetries.coerceAtLeast(0) else 0
         while (true) {
             try {
                 val call = client.newCall(req)
-                println("DEBUG FCMS executeWithRetries: Executing call to: ${call.request().url}") // DEBUG
+                val startTime = System.currentTimeMillis()
                 val resp = call.execute()
+                val duration = System.currentTimeMillis() - startTime
+                
                 if (resp.isSuccessful) {
+                    log.info("FCMS Response: {} {} -> {} ({} ms)", req.method, req.url, resp.code, duration)
                     return resp.body ?: run {
                         resp.closeQuietly()
                         throw IOException("Empty response body")
@@ -278,20 +497,30 @@ internal class FcmsSalariesClientImpl(
                 }
                 // Non-2xx
                 val ex = toHttpException(resp)
+                log.warn("FCMS Error Response: {} {} -> {} ({} ms) - {}", 
+                    req.method, req.url, resp.code, duration, ex.message ?: ex.body)
                 resp.closeQuietly()
-                if (enable && shouldRetry(ex.status)) {
+                if (enableHttpRetry && shouldRetry(ex.status)) {
                     val delayMs = computeBackoff(attempt, ex.retryAfterSeconds)
                     if (attempt < max) {
                         attempt++
+                        log.info("FCMS Retry: attempt {} of {} for {} {} (delay {} ms)", 
+                            attempt, max, req.method, req.url, delayMs)
                         delay(delayMs)
                         continue
                     }
                 }
                 throw ex
             } catch (io: IOException) {
-                if (enable && attempt < max) {
+                log.error("FCMS IO Error: {} {} - {}", req.method, req.url, io.message)
+                // Evict stale connections on IO errors (timeout, socket closed, etc.)
+                client.connectionPool.evictAll()
+                log.debug("FCMS: Evicted connection pool after IO error")
+                // Always retry IO errors if retries enabled - request may not have reached server
+                if (enableIoRetry && attempt < max) {
                     attempt++
                     val delayMs = computeBackoff(attempt, null)
+                    log.info("FCMS Retry after IO error: attempt {} of {} (delay {} ms)", attempt, max, delayMs)
                     delay(delayMs)
                     continue
                 }
@@ -325,15 +554,22 @@ internal class FcmsSalariesClientImpl(
         } catch (e: Exception) {
             null
         }
-        println("DEBUG FCMS toHttpException: status=$status, URL=${resp.request.url}, body=$bodyStr") // DEBUG
+        log.debug("FCMS Error Details: status={}, url={}, body={}", status, resp.request.url, bodyStr)
         var code: String? = null
         var message: String? = null
         if (!bodyStr.isNullOrBlank()) {
             try {
                 val node = json.readTree(bodyStr)
-                message = node.get("message")?.asText() ?: message
-                code = node.get("code")?.asText() ?: code
-                println("DEBUG FCMS toHttpException: Extracted message='$message', code='$code'") // DEBUG
+                // FCMS returns errors in nested structure: {"error":{"code":"FCMS028","message":"..."}}
+                val errorNode = node.get("error")
+                if (errorNode != null && errorNode.isObject) {
+                    code = errorNode.get("code")?.asText()
+                    message = errorNode.get("message")?.asText()
+                }
+                // Fallback to root level if not in nested structure
+                if (code == null) code = node.get("code")?.asText()
+                if (message == null) message = node.get("message")?.asText()
+                log.debug("FCMS Error Parsed: code={}, message={}", code, message)
             } catch (_: Exception) {
                 // ignore JSON parse errors for body
             }
@@ -358,6 +594,6 @@ internal class FcmsSalariesClientImpl(
     }
 
     override fun close() {
-        // Nothing specific; OkHttp shares resources; dispatcher will shutdown when GC'd
+        managed.close()
     }
 }
