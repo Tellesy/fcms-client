@@ -71,3 +71,37 @@ data class FxPurchaseRequestsListFilter(
     val type: String? = null,
     val reference: String? = null,
 )
+
+data class PendingPurchaseRequestsListFilter(
+    val reference: String? = null,
+    val phone: String? = null,
+    val nid: String? = null,
+)
+
+data class PurchaseRequestsQueueListFilter(
+    val type: String? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CashContract @JsonCreator constructor(
+    @JsonProperty("uuid") val uuid: String?,
+    @JsonProperty("amount") val amount: String?,
+    @JsonProperty("cash_price") val cashPrice: String?,
+    @JsonProperty("bank_transfer_price") val bankTransferPrice: String?,
+    @JsonProperty("sum_of_approved_cash_price") val sumOfApprovedCashPrice: String?,
+    @JsonProperty("sum_of_approved_bank_transfer_price") val sumOfApprovedBankTransferPrice: String?,
+    @JsonProperty("date") val date: String?,
+    @JsonProperty("state") val state: String?,
+    @JsonProperty("timestamp") val timestamp: Long?,
+    @JsonProperty("bank_account") val bankAccount: FxHouseBankAccount?,
+    @JsonProperty("created_at") val createdAt: String?,
+    @JsonProperty("updated_at") val updatedAt: String?,
+    @JsonProperty("company") val company: FxHouse?,
+)
+
+data class CashContractsListFilter(
+    val dateFrom: String? = null,
+    val dateTo: String? = null,
+    val state: String? = null,
+    val cblKey: String? = null,
+)

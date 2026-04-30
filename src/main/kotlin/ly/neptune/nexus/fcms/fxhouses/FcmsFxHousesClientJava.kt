@@ -9,14 +9,24 @@ import ly.neptune.nexus.fcms.accounts.model.BankAccount
 import ly.neptune.nexus.fcms.core.FcmsConfig
 import ly.neptune.nexus.fcms.core.RequestOptions
 import ly.neptune.nexus.fcms.fxhouses.internal.FcmsFxHousesClientImpl
+import ly.neptune.nexus.fcms.fxhouses.model.CashContract
+import ly.neptune.nexus.fcms.fxhouses.model.CashContractsListFilter
 import ly.neptune.nexus.fcms.fxhouses.model.FxContract
 import ly.neptune.nexus.fcms.fxhouses.model.FxContractsListFilter
 import ly.neptune.nexus.fcms.fxhouses.model.FxHouse
 import ly.neptune.nexus.fcms.fxhouses.model.FxPurchaseRequest
 import ly.neptune.nexus.fcms.fxhouses.model.FxPurchaseRequestsListFilter
+import ly.neptune.nexus.fcms.fxhouses.model.PendingPurchaseRequestsListFilter
+import ly.neptune.nexus.fcms.fxhouses.model.PurchaseRequestsQueueListFilter
+import ly.neptune.nexus.fcms.fxhouses.model.request.CashContractActionRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.CashContractProcessRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.CashContractRejectRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractActionRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractDeclineRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractProcessRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.FxPurchaseRequestApproveRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.FxPurchaseRequestDeclineRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.FxPurchaseRequestProcessRequest
 import ly.neptune.nexus.fcms.salaries.model.Page
 import java.util.concurrent.CompletableFuture
 
@@ -65,6 +75,60 @@ class FcmsFxHousesClientJava private constructor(
         request: FxContractDeclineRequest,
         options: RequestOptions?
     ): CompletableFuture<FxContract> = scope.future { delegate.declineContract(uuid, request, options) }
+
+    fun approveFxPurchaseRequest(
+        uuid: String,
+        request: FxPurchaseRequestApproveRequest,
+        options: RequestOptions?
+    ): CompletableFuture<FxPurchaseRequest> = scope.future { delegate.approveFxPurchaseRequest(uuid, request, options) }
+
+    fun processFxPurchaseRequest(
+        uuid: String,
+        request: FxPurchaseRequestProcessRequest,
+        options: RequestOptions?
+    ): CompletableFuture<FxPurchaseRequest> = scope.future { delegate.processFxPurchaseRequest(uuid, request, options) }
+
+    fun declineFxPurchaseRequest(
+        uuid: String,
+        request: FxPurchaseRequestDeclineRequest,
+        options: RequestOptions?
+    ): CompletableFuture<FxPurchaseRequest> = scope.future { delegate.declineFxPurchaseRequest(uuid, request, options) }
+
+    fun listPendingPurchaseRequests(
+        page: Int?,
+        filter: PendingPurchaseRequestsListFilter?,
+        options: RequestOptions?
+    ): CompletableFuture<Page<FxPurchaseRequest>> = scope.future { delegate.listPendingPurchaseRequests(page, filter, options) }
+
+    fun listPurchaseRequestsQueue(
+        page: Int?,
+        filter: PurchaseRequestsQueueListFilter?,
+        options: RequestOptions?
+    ): CompletableFuture<Page<FxPurchaseRequest>> = scope.future { delegate.listPurchaseRequestsQueue(page, filter, options) }
+
+    fun listCashContracts(
+        page: Int?,
+        filter: CashContractsListFilter?,
+        options: RequestOptions?
+    ): CompletableFuture<Page<CashContract>> = scope.future { delegate.listCashContracts(page, filter, options) }
+
+    fun approveCashContract(
+        uuid: String,
+        request: CashContractActionRequest,
+        options: RequestOptions?
+    ): CompletableFuture<CashContract> = scope.future { delegate.approveCashContract(uuid, request, options) }
+
+    fun processCashContract(
+        uuid: String,
+        request: CashContractProcessRequest,
+        options: RequestOptions?
+    ): CompletableFuture<CashContract> = scope.future { delegate.processCashContract(uuid, request, options) }
+
+    fun rejectCashContract(
+        uuid: String,
+        request: CashContractRejectRequest,
+        options: RequestOptions?
+    ): CompletableFuture<CashContract> = scope.future { delegate.rejectCashContract(uuid, request, options) }
 
     override fun close() {
         scope.cancel("FcmsFxHousesClientJava closed")

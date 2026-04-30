@@ -21,14 +21,24 @@ import ly.neptune.nexus.fcms.core.http.FcmsHttpException
 import ly.neptune.nexus.fcms.core.http.JsonSupport
 import ly.neptune.nexus.fcms.core.http.OkHttpProvider
 import ly.neptune.nexus.fcms.fxhouses.FcmsFxHousesClient
+import ly.neptune.nexus.fcms.fxhouses.model.CashContract
+import ly.neptune.nexus.fcms.fxhouses.model.CashContractsListFilter
 import ly.neptune.nexus.fcms.fxhouses.model.FxContract
 import ly.neptune.nexus.fcms.fxhouses.model.FxContractsListFilter
 import ly.neptune.nexus.fcms.fxhouses.model.FxHouse
 import ly.neptune.nexus.fcms.fxhouses.model.FxPurchaseRequest
 import ly.neptune.nexus.fcms.fxhouses.model.FxPurchaseRequestsListFilter
+import ly.neptune.nexus.fcms.fxhouses.model.PendingPurchaseRequestsListFilter
+import ly.neptune.nexus.fcms.fxhouses.model.PurchaseRequestsQueueListFilter
+import ly.neptune.nexus.fcms.fxhouses.model.request.CashContractActionRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.CashContractProcessRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.CashContractRejectRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractActionRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractDeclineRequest
 import ly.neptune.nexus.fcms.fxhouses.model.request.FxContractProcessRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.FxPurchaseRequestApproveRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.FxPurchaseRequestDeclineRequest
+import ly.neptune.nexus.fcms.fxhouses.model.request.FxPurchaseRequestProcessRequest
 import ly.neptune.nexus.fcms.salaries.model.Page
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -217,6 +227,206 @@ internal class FcmsFxHousesClientImpl(
         val body = executeWithRetries(req, isIdempotent = false)
         body.use { rb ->
             return JsonSupport.readSingleEnvelope(rb.byteStream(), FxContract::class.java)
+        }
+    }
+
+    override suspend fun approveFxPurchaseRequest(uuid: String, request: FxPurchaseRequestApproveRequest, options: RequestOptions?): FxPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/fx-houses/purchase-requests/$uuid/approve"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxPurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun processFxPurchaseRequest(uuid: String, request: FxPurchaseRequestProcessRequest, options: RequestOptions?): FxPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/fx-houses/purchase-requests/$uuid/process"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxPurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun declineFxPurchaseRequest(uuid: String, request: FxPurchaseRequestDeclineRequest, options: RequestOptions?): FxPurchaseRequest {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/fx-houses/purchase-requests/$uuid/decline"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), FxPurchaseRequest::class.java)
+        }
+    }
+
+    override suspend fun listPendingPurchaseRequests(page: Int?, filter: PendingPurchaseRequestsListFilter?, options: RequestOptions?): Page<FxPurchaseRequest> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/fx-houses/pending-purchase-requests")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[reference]", filter.reference)
+                addParam("filter[phone]", filter.phone)
+                addParam("filter[nid]", filter.nid)
+            }
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), FxPurchaseRequest::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
+        }
+    }
+
+    override suspend fun listPurchaseRequestsQueue(page: Int?, filter: PurchaseRequestsQueueListFilter?, options: RequestOptions?): Page<FxPurchaseRequest> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/fx-houses/purchase-requests-queue")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[type]", filter.type)
+            }
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), FxPurchaseRequest::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
+        }
+    }
+
+    override suspend fun listCashContracts(page: Int?, filter: CashContractsListFilter?, options: RequestOptions?): Page<CashContract> {
+        val base = effectiveBaseUrl(options)
+        val url = buildString {
+            append(base)
+            append("/api/v1/fx-houses/cash-contracts")
+            var first = true
+            fun addParam(k: String, v: String?) {
+                if (v.isNullOrBlank()) return
+                append(if (first) "?" else "&")
+                first = false
+                append(k).append("=").append(v)
+            }
+            if (page != null) addParam("page", page.toString())
+            if (filter != null) {
+                addParam("filter[date_from]", filter.dateFrom)
+                addParam("filter[date_to]", filter.dateTo)
+                addParam("filter[state]", filter.state)
+                addParam("filter[cbl_key]", filter.cblKey)
+            }
+        }
+        val req = Request.Builder()
+            .url(url)
+            .get()
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = true)
+        body.use { rb ->
+            val pr = JsonSupport.readListEnvelope(rb.byteStream(), CashContract::class.java)
+            return Page(pr.data, pr.total, pr.perPage, pr.currentPage, pr.next, pr.prev)
+        }
+    }
+
+    override suspend fun approveCashContract(uuid: String, request: CashContractActionRequest, options: RequestOptions?): CashContract {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/fx-houses/cash-contracts/$uuid/approve"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), CashContract::class.java)
+        }
+    }
+
+    override suspend fun processCashContract(uuid: String, request: CashContractProcessRequest, options: RequestOptions?): CashContract {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/fx-houses/cash-contracts/$uuid/process"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), CashContract::class.java)
+        }
+    }
+
+    override suspend fun rejectCashContract(uuid: String, request: CashContractRejectRequest, options: RequestOptions?): CashContract {
+        val base = effectiveBaseUrl(options)
+        val url = "$base/api/v1/fx-houses/cash-contracts/$uuid/reject"
+        val payload = json.writeValueAsString(request)
+        val req = Request.Builder()
+            .url(url)
+            .patch(payload.toRequestBody(jsonMedia))
+            .header("User-Agent", config.userAgent)
+            .applyAuth(options)
+            .applyReadOverride(options)
+            .build()
+        val body = executeWithRetries(req, isIdempotent = false)
+        body.use { rb ->
+            return JsonSupport.readSingleEnvelope(rb.byteStream(), CashContract::class.java)
         }
     }
 

@@ -24,3 +24,43 @@ data class FxContractDeclineRequest @JsonCreator constructor(
     @JsonProperty("decline_reason") val declineReason: String? = null,
     @JsonProperty("decline_reason_note") val declineReasonNote: String? = null,
 )
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxPurchaseRequestApproveRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxPurchaseRequestProcessRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+    @JsonProperty("usd_serial_numbers") val usdSerialNumbers: List<String>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class FxPurchaseRequestDeclineRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+    @JsonProperty("reject_reason") val rejectReason: String? = null,
+    @JsonProperty("reject_reason_note") val rejectReasonNote: String? = null,
+    @JsonProperty("decline_reason") val declineReason: String? = null,
+    @JsonProperty("decline_reason_note") val declineReasonNote: String? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CashContractActionRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CashContractProcessRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+    @JsonProperty("amount_purchased_cash") val amountPurchasedCash: String? = null,
+    @JsonProperty("amount_purchased_bank_transfer") val amountPurchasedBankTransfer: String? = null,
+    @JsonProperty("usd_serial_numbers") val usdSerialNumbers: List<String>? = null,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CashContractRejectRequest @JsonCreator constructor(
+    @JsonProperty("ts") val ts: Long,
+    @JsonProperty("reject_reason") val rejectReason: String? = null,
+    @JsonProperty("reject_reason_note") val rejectReasonNote: String? = null,
+)
