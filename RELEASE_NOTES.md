@@ -1,10 +1,19 @@
-# FCMS Client SDK v1.4.0 Release Notes
+# FCMS Client SDK v1.4.2 Release Notes
 
-**Release Date:** April 30, 2026  
-**Version:** 1.4.0  
-**Maven Central:** `io.github.tellesy:fcms-client:1.4.0`
+**Release Date:** May 3, 2026  
+**Version:** 1.4.2 (fcms-client), 1.1.7 (fcms-fx-houses-client)  
+**Maven Central:** `io.github.tellesy:fcms-client:1.4.2`
 
-## What's New
+## Updates in 1.4.2 & 1.1.7
+- Corrected path structures: All cash-related APIs are now correctly routed to `/api/v1/fx-houses/cash/`.
+  - `listPurchaseRequestsQueue` hits `/api/v1/fx-houses/cash/purchase-requests-queue`
+  - `approveFxPurchaseRequest` hits `/api/v1/fx-houses/cash/purchase-requests/{uuid}/approve`
+  - `listCashContracts` hits `/api/v1/fx-houses/cash/cash-contracts`
+  - *(And similarly for all other cash functions)*
+
+---
+
+## What's New in 1.4.0
 
 This release adds comprehensive Cash API support and new Purchase Request management endpoints to the FX Houses module.
 

@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.tellesy"
-version = "1.4.0"
+version = "1.4.2"
 
 java {
     toolchain {
@@ -133,7 +133,7 @@ mavenPublishing {
             sourcesJar = true,
         )
     )
-    publishToMavenCentral(automaticRelease = true)
+    // Maven Central Publishing configured via gradle.properties
     if (signingKeyProp != null && signingPasswordProp != null) {
         signAllPublications()
     }
