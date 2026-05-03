@@ -349,7 +349,7 @@ internal class FcmsFxHousesClientImpl(
         val base = effectiveBaseUrl(options)
         val url = buildString {
             append(base)
-            append("/api/v1/fx-houses/cash/cash-contracts")
+            append("/api/v1/fx-houses/cash-contracts")
             var first = true
             fun addParam(k: String, v: String?) {
                 if (v.isNullOrBlank()) return
@@ -381,7 +381,7 @@ internal class FcmsFxHousesClientImpl(
 
     override suspend fun approveCashContract(uuid: String, request: CashContractActionRequest, options: RequestOptions?): CashContract {
         val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/fx-houses/cash/cash-contracts/$uuid/approve"
+        val url = "$base/api/v1/fx-houses/cash-contracts/$uuid/approve"
         val payload = json.writeValueAsString(request)
         val req = Request.Builder()
             .url(url)
@@ -398,7 +398,7 @@ internal class FcmsFxHousesClientImpl(
 
     override suspend fun processCashContract(uuid: String, request: CashContractProcessRequest, options: RequestOptions?): CashContract {
         val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/fx-houses/cash/cash-contracts/$uuid/process"
+        val url = "$base/api/v1/fx-houses/cash-contracts/$uuid/process"
         val payload = json.writeValueAsString(request)
         val req = Request.Builder()
             .url(url)
@@ -415,7 +415,7 @@ internal class FcmsFxHousesClientImpl(
 
     override suspend fun rejectCashContract(uuid: String, request: CashContractRejectRequest, options: RequestOptions?): CashContract {
         val base = effectiveBaseUrl(options)
-        val url = "$base/api/v1/fx-houses/cash/cash-contracts/$uuid/reject"
+        val url = "$base/api/v1/fx-houses/cash-contracts/$uuid/reject"
         val payload = json.writeValueAsString(request)
         val req = Request.Builder()
             .url(url)

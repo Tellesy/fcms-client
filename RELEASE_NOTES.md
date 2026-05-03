@@ -1,8 +1,15 @@
-# FCMS Client SDK v1.4.2 Release Notes
+# FCMS Client SDK v1.4.3 Release Notes
 
 **Release Date:** May 3, 2026  
-**Version:** 1.4.2 (fcms-client), 1.1.7 (fcms-fx-houses-client)  
-**Maven Central:** `io.github.tellesy:fcms-client:1.4.2`
+**Version:** 1.4.3 (fcms-client), 1.1.8 (fcms-fx-houses-client)  
+**Maven Central:** `io.github.tellesy:fcms-client:1.4.3`
+
+## Updates in 1.4.3 & 1.1.8
+- **Endpoint Path Correction:** Removed the extra `/cash/` segment from cash-contracts endpoints to match server structure.
+  - `listCashContracts` now hits `/api/v1/fx-houses/cash-contracts` (previously `/api/v1/fx-houses/cash/cash-contracts`)
+  - `approveCashContract`, `processCashContract`, and `rejectCashContract` now hit `/api/v1/fx-houses/cash-contracts/{uuid}/action` (previously `/api/v1/fx-houses/cash/cash-contracts/{uuid}/action`)
+
+---
 
 ## Updates in 1.4.2 & 1.1.7
 - Corrected path structures: All cash-related APIs are now correctly routed to `/api/v1/fx-houses/cash/`.
