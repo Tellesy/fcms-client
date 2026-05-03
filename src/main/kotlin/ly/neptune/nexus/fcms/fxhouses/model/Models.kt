@@ -44,10 +44,17 @@ data class CodeName @JsonCreator constructor(
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+data class ExchangeRate @JsonCreator constructor(
+    @JsonProperty("date") val date: String?,
+    @JsonProperty("rate") val rate: String?,
+)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 data class FxPurchaseRequest @JsonCreator constructor(
     @JsonProperty("uuid") val uuid: String?,
     @JsonProperty("reference") val reference: String?,
     @JsonProperty("amount_requested") val amountRequested: String?,
+    @JsonProperty("cost") val cost: String?,
     @JsonProperty("type") val type: CodeName?,
     @JsonProperty("state") val state: CodeName?,
     @JsonProperty("contract") val contract: FxContract?,
@@ -55,6 +62,7 @@ data class FxPurchaseRequest @JsonCreator constructor(
     @JsonAlias("bankAccount", "bank_account") val bankAccount: ly.neptune.nexus.fcms.accounts.model.BankAccount?,
     @JsonProperty("deposit_type") val depositType: CodeName?,
     @JsonProperty("passport_attached") val passportAttached: Boolean?,
+    @JsonProperty("exchange_rate") val exchangeRate: ExchangeRate?,
     @JsonProperty("raw") val raw: JsonNode? = null,
 )
 
