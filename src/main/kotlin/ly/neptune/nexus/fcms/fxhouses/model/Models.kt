@@ -56,6 +56,9 @@ data class ExchangeRate @JsonCreator constructor(
 data class BankBranch @JsonCreator constructor(
     @JsonProperty("uuid") val uuid: String?,
     @JsonProperty("name") val name: String?,
+    @JsonProperty("is_active") val isActive: String?,
+    @JsonProperty("is_main_branch") val isMainBranch: String?,
+    @JsonProperty("created_at") val createdAt: String?,
 )
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -83,6 +86,10 @@ data class FxPurchaseRequest @JsonCreator constructor(
     @JsonProperty("deposit_type") val depositType: CodeName?,
     @JsonProperty("passport_attached") val passportAttached: Boolean?,
     @JsonProperty("exchange_rate") val exchangeRate: ExchangeRate?,
+    @JsonProperty("approved_at") val approvedAt: String?,
+    @JsonProperty("approved_by") val approvedBy: String?,
+    @JsonProperty("declined_at") val declinedAt: String?,
+    @JsonProperty("declined_by") val declinedBy: String?,
     @JsonProperty("processed_at") val processedAt: String?,
     @JsonProperty("processed_by") val processedBy: String?,
     @JsonProperty("updated_from") val updatedFrom: String?,
