@@ -9,7 +9,7 @@ plugins {
 }
 
 group = "io.github.tellesy"
-version = "1.4.3"
+version = "1.4.4"
 
 java {
     toolchain {
